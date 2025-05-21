@@ -4,7 +4,7 @@ Bem-vindo ao projeto **Rede Social de Atividade Física**, uma aplicação desen
 
 ---
 
-## 💻 Equipe do Projeto
+## 📱 Equipe do Projeto
 
 ### 🧙 Scrum Master
 - Marcos Felipe Altenhofen
