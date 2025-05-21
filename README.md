@@ -4,13 +4,16 @@ Bem-vindo ao projeto **Rede Social de Atividade Física**, uma aplicação desen
 
 ---
 
-## 👨‍💻 Desenvolvedores
+## 💻 Equipe do Projeto
 
+### 🧙 Scrum Master
+- Marcos Felipe Altenhofen
+
+### 👨‍💻 Devs
 - Diego Chruscinski de Souza  
 - João Gabriel Jarutais  
 - Gustavo Moretto Dalla Costa  
-- Marcos Felipe [SOBRENOME]  
-- Geovane [SOBRENOME]  
+- Geovane de Campos Soares  
 
 ---
 
