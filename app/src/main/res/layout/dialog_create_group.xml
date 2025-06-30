@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/group_name">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editTextGroupName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <ImageView
+        android:id="@+id/imageViewGroupIcon"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        android:src="@drawable/ic_group_placeholder"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/group_icon"/>
+
+    <Button
+        android:id="@+id/buttonSelectImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/select_image"
+        android:layout_marginTop="16dp"/>
+
+</LinearLayout>
