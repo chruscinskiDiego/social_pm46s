@@ -2,7 +2,6 @@
 agp = "8.11.0-rc01"
 credentialsPlayServicesAuth = "1.5.0"
 firebaseBom = "33.15.0"
-firebaseBomVersion = "32.7.0"
 fragmentKtx = "1.6.2"
 kotlin = "2.1.21"
 coreKtx = "1.16.0"
@@ -15,8 +14,6 @@ lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.10.1"
 composeBom = "2025.06.00"
 playServicesAuth = "21.3.0"
-googleid = "1.1.1"
-playServicesAuthVersion = "20.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
