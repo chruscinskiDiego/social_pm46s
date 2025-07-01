@@ -6,11 +6,11 @@ plugins {
 
 android {
     namespace = "br.edu.utfpr.social_pm46s"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.edu.utfpr.social_pm46s"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -77,4 +77,5 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.androidx.health.connect.client)
 }
