@@ -7,11 +7,11 @@ plugins {
 
 android {
     namespace = "br.edu.utfpr.social_pm46s"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.edu.utfpr.social_pm46s"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -74,16 +74,17 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.play.services.auth)
-
     // Testes
     testImplementation(libs.junit)
-
     // Testes instrumentados
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.ui.test.junit4)
-
     // Debug
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.androidx.health.connect.client)
 }
