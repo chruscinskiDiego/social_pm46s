@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1084557816281",
+    "project_id": "socialfitpm46s",
+    "storage_bucket": "socialfitpm46s.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084557816281:android:9598a023a2a323bd5769c8",
+        "android_client_info": {
+          "package_name": "br.edu.utfpr.social_pm46s"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDg-8hzuV6jNLaP4phB_bB0mYNH2-KXcU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
