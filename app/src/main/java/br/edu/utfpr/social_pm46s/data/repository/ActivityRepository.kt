@@ -31,7 +31,9 @@ class ActivityRepository {
     suspend fun saveWorkout(workout: WorkoutResult): Boolean {
         return try {
             val workoutId =
-                if (workout.id.isNotEmpty()) workout.id else UUID.randomUUID().toString()
+                if (workout.id.isNotEmpty()) {
+                    workout.id
+                } else UUID.randomUUID().toString()
             val workoutToSave = workout.copy(id = workoutId)
 
             workoutCollection.document(workoutId).set(workoutToSave).await()

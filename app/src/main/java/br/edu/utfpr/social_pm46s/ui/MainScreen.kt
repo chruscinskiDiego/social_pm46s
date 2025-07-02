@@ -3,13 +3,15 @@ package br.edu.utfpr.social_pm46s.ui
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,8 +52,22 @@ object MainScreen : Screen {
                     )
                 }
             },
-            onNavigateToServices = {
-                navigator.push(ServicesScreen)
+            onServiceClick = { serviceType ->
+                when (serviceType) {
+                    ServiceType.MONITORING -> navigator.push(MonitoringScreen)
+                    ServiceType.SOCIAL -> {
+                        // Tela não implementada ainda
+                        showToast(context, "Funcionalidade em desenvolvimento")
+                    }
+                    ServiceType.PROFILE -> {
+                        // Tela não implementada ainda
+                        showToast(context, "Funcionalidade em desenvolvimento")
+                    }
+                    ServiceType.HISTORY -> {
+                        // Tela não implementada ainda
+                        showToast(context, "Funcionalidade em desenvolvimento")
+                    }
+                }
             }
         )
     }
@@ -65,103 +81,206 @@ private fun MainScreenContent(
     userRepository: UserRepository,
     scope: CoroutineScope,
     onSignOutClick: () -> Unit,
-    onNavigateToServices: () -> Unit,
+    onServiceClick: (ServiceType) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Dashboard",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    IconButton(onClick = onSignOutClick) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Sair"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .systemBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Cabeçalho
-            HeaderSection()
+            item {
+                // Seção de boas-vindas
+                WelcomeSection(currentUser = currentUser)
+            }
 
-            // Informações do usuário
-            UserInfoSection(currentUser = currentUser)
+            item {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outline
-            )
+            item {
+                // Título dos serviços
+                Text(
+                    text = "Serviços Disponíveis",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
 
-            // Botões principais
-            MainActionsSection(
-                onNavigateToServices = onNavigateToServices,
-                scope = scope,
-                userRepository = userRepository
-            )
+            // Cards dos serviços
+            items(getAvailableServices()) { service ->
+                ServiceCard(
+                    service = service,
+                    onClick = { onServiceClick(service.type) }
+                )
+            }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outline
-            )
+            item {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
 
-            // Botão de logout
-            LogoutSection(onSignOutClick = onSignOutClick)
+            item {
+                // Botões de teste (removíveis em produção)
+                TestButtonsSection(
+                    scope = scope,
+                    userRepository = userRepository
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun HeaderSection(
-    modifier: Modifier = Modifier
-) {
-    Text(
-        text = "Painel Principal",
-        fontSize = 28.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(vertical = 16.dp)
-    )
-}
-
-@Composable
-private fun UserInfoSection(
+private fun WelcomeSection(
     currentUser: FirebaseUser?,
     modifier: Modifier = Modifier
 ) {
-    currentUser?.let { user ->
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
         Column(
-            modifier = modifier,
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "Bem-vindo!",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onBackground
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
-            Text(
-                text = "Usuário: ${user.displayName ?: "Sem nome"}",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            currentUser?.let { user ->
+                Text(
+                    text = user.displayName ?: "Usuário",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
 
-            Text(
-                text = "Email: ${user.email ?: "Sem email"}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    text = user.email ?: "",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServiceCard(
+    service: ServiceInfo,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 6.dp,
+            pressedElevation = 8.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Ícone do serviço
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = service.color
+            ) {
+                Icon(
+                    imageVector = service.icon,
+                    contentDescription = service.title,
+                    modifier = Modifier.padding(12.dp),
+                    tint = androidx.compose.ui.graphics.Color.White
+                )
+            }
+
+            // Informações do serviço
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = service.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = service.description,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Ícone de navegação
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowRight,
+                contentDescription = "Acessar",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun MainActionsSection(
-    onNavigateToServices: () -> Unit,
+private fun TestButtonsSection(
     scope: CoroutineScope,
     userRepository: UserRepository,
     modifier: Modifier = Modifier
@@ -170,86 +289,88 @@ private fun MainActionsSection(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Botão principal de serviços
-        Button(
-            onClick = onNavigateToServices,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 4.dp
-            )
-        ) {
-            Text(
-                text = "Acessar Serviços",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-        }
+        Text(
+            text = "Testes (Desenvolvimento)",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-        // Botões de teste
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    handleFirestoreTest(
-                        context = context,
-                        userRepository = userRepository
-                    )
-                }
-            },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary
-            )
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "Testar Firestore",
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-        }
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        handleFirestoreTest(context, userRepository)
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Firestore")
+            }
 
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    handleRealtimeTest(context = context)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Text(
-                text = "Testar Realtime DB",
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        handleRealtimeTest(context)
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Realtime")
+            }
         }
     }
 }
 
-@Composable
-private fun LogoutSection(
-    onSignOutClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onSignOutClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError
+// Data classes para os serviços
+enum class ServiceType {
+    MONITORING, SOCIAL, PROFILE, HISTORY
+}
+
+data class ServiceInfo(
+    val type: ServiceType,
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val color: androidx.compose.ui.graphics.Color
+)
+
+private fun getAvailableServices(): List<ServiceInfo> {
+    return listOf(
+        ServiceInfo(
+            type = ServiceType.MONITORING,
+            title = "Monitoramento",
+            description = "Inicie e monitore seus exercícios em tempo real",
+            icon = Icons.Default.DirectionsRun,
+            color = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+        ),
+        ServiceInfo(
+            type = ServiceType.SOCIAL,
+            title = "Social",
+            description = "Conecte-se com amigos e compartilhe suas atividades",
+            icon = Icons.Default.Group,
+            color = androidx.compose.ui.graphics.Color(0xFF2196F3)
+        ),
+        ServiceInfo(
+            type = ServiceType.PROFILE,
+            title = "Perfil",
+            description = "Gerencie suas informações pessoais e configurações",
+            icon = Icons.Default.Person,
+            color = androidx.compose.ui.graphics.Color(0xFF9C27B0)
+        ),
+        ServiceInfo(
+            type = ServiceType.HISTORY,
+            title = "Histórico",
+            description = "Visualize o histórico de seus exercícios e progresso",
+            icon = Icons.Default.Assessment,
+            color = androidx.compose.ui.graphics.Color(0xFFFF9800)
         )
-    ) {
-        Text(
-            text = "Logout",
-            modifier = Modifier.padding(vertical = 4.dp)
-        )
-    }
+    )
 }
 
 private suspend fun handleSignOut(
@@ -262,7 +383,7 @@ private suspend fun handleSignOut(
         showToast(context, "Logout realizado com sucesso!")
         onSuccess()
     } catch (e: Exception) {
-        showToast(context, "Erro no logout: ${e.message}")
+        showToast(context, "Erro ao fazer logout: ${e.message}")
     }
 }
 
@@ -271,14 +392,10 @@ private suspend fun handleFirestoreTest(
     userRepository: UserRepository
 ) {
     try {
-        val testData = mapOf(
-            "test" to "Teste realizado em ${System.currentTimeMillis()}",
-            "timestamp" to System.currentTimeMillis()
-        )
-
-        showToast(context, "Teste do Firestore executado!")
+        val users = userRepository.getAllUsers()
+        showToast(context, "Firestore: ${users.size} usuários encontrados")
     } catch (e: Exception) {
-        showToast(context, "Erro no teste Firestore: ${e.message}")
+        showToast(context, "Erro no Firestore: ${e.message}")
     }
 }
 
@@ -286,7 +403,7 @@ private suspend fun handleRealtimeTest(context: Context) {
     try {
         showToast(context, "Teste do Realtime DB executado!")
     } catch (e: Exception) {
-        showToast(context, "Erro no teste Realtime DB: ${e.message}")
+        showToast(context, "Erro no Realtime: ${e.message}")
     }
 }
 

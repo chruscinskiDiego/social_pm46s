@@ -6,17 +6,14 @@ import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
-import androidx.health.connect.client.records.metadata.Metadata
-import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
-import androidx.health.connect.client.units.Power
-import androidx.health.connect.client.units.Velocity
 import br.edu.utfpr.social_pm46s.data.model.ActiveExerciseSession
 import br.edu.utfpr.social_pm46s.data.model.AggregatedData
 import br.edu.utfpr.social_pm46s.data.model.DistanceData
@@ -29,7 +26,8 @@ import br.edu.utfpr.social_pm46s.data.model.WeightData
 import br.edu.utfpr.social_pm46s.data.model.workout.WorkoutSummary
 import java.time.Duration
 import java.time.Instant
-import java.time.ZonedDateTime
+import java.time.ZoneOffset
+import kotlin.reflect.KClass
 
 class HealthConnectService(private val context: Context) {
 
@@ -41,7 +39,7 @@ class HealthConnectService(private val context: Context) {
 
     companion object {
         private const val TAG = "HealthConnectService"
-        private const val APP_PACKAGE_NAME = "br.edu.utfpr.social_pm46s"
+        private val TOLERANCE_DURATION = Duration.ofSeconds(30)
 
         const val EXERCISE_TYPE_WALKING = 79
         const val EXERCISE_TYPE_RUNNING = 56
@@ -49,7 +47,6 @@ class HealthConnectService(private val context: Context) {
         const val EXERCISE_TYPE_WEIGHTLIFTING = 96
         const val EXERCISE_TYPE_YOGA = 102
         const val EXERCISE_TYPE_SWIMMING = 71
-
     }
 
     init {
@@ -57,52 +54,33 @@ class HealthConnectService(private val context: Context) {
     }
 
     private fun initializeHealthConnect() {
-        if (HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE) {
-            healthConnectClient = HealthConnectClient.getOrCreate(context)
-            isHealthConnectAvailable = true
-            device = Device(
-                manufacturer = Build.MANUFACTURER,
-                model = Build.MODEL,
-                type = Device.TYPE_PHONE
-            )
+        val isAvailable =
+            HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+        isHealthConnectAvailable = isAvailable
+        device = Device(
+            type = Device.TYPE_PHONE,
+            manufacturer = Build.MANUFACTURER,
+            model = Build.MODEL,
+        )
 
-            Log.i(TAG, "Health Connect SDK inicializado e disponível.")
-            Log.i(TAG, "Device configurado: ${device.manufacturer} ${device.model}")
+        if (isAvailable) {
+            healthConnectClient = HealthConnectClient.getOrCreate(context)
+            Log.i(TAG, "Health Connect disponível e inicializado")
         } else {
-            isHealthConnectAvailable = false
-            Log.w(TAG, "Health Connect não está disponível neste dispositivo.")
+            Log.w(TAG, "Health Connect não disponível neste dispositivo")
         }
     }
 
     suspend fun checkAllPermissions(): Boolean {
-        if (!isHealthConnectAvailable || !::healthConnectClient.isInitialized) {
-            return false
-        }
-
-        val requiredPermissions = setOf(
-            HealthPermission.getReadPermission(StepsRecord::class),
-            HealthPermission.getWritePermission(StepsRecord::class),
-            HealthPermission.getReadPermission(HeartRateRecord::class),
-            HealthPermission.getWritePermission(HeartRateRecord::class),
-            HealthPermission.getReadPermission(WeightRecord::class),
-            HealthPermission.getWritePermission(WeightRecord::class),
-            HealthPermission.getReadPermission(DistanceRecord::class),
-            HealthPermission.getWritePermission(DistanceRecord::class),
-            HealthPermission.getReadPermission(SleepSessionRecord::class),
-            HealthPermission.getWritePermission(SleepSessionRecord::class),
-            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-            HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
-            HealthPermission.getReadPermission(SpeedRecord::class),
-            HealthPermission.getWritePermission(SpeedRecord::class),
-            HealthPermission.getReadPermission(PowerRecord::class),
-            HealthPermission.getWritePermission(PowerRecord::class)
-        )
+        if (!isHealthConnectAvailable) return false
 
         return try {
-            val granted = healthConnectClient.permissionController.getGrantedPermissions()
-            granted.containsAll(requiredPermissions)
+            val requiredPermissions = getRequiredPermissions()
+            val grantedPermissions =
+                healthConnectClient.permissionController.getGrantedPermissions()
+            grantedPermissions.containsAll(requiredPermissions)
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao verificar permissões do Health Connect", e)
+            Log.e(TAG, "Erro ao verificar permissões", e)
             false
         }
     }
@@ -121,264 +99,269 @@ class HealthConnectService(private val context: Context) {
             HealthPermission.getWritePermission(SleepSessionRecord::class),
             HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
             HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
-            HealthPermission.getReadPermission(SpeedRecord::class),
-            HealthPermission.getWritePermission(SpeedRecord::class),
-            HealthPermission.getReadPermission(PowerRecord::class),
-            HealthPermission.getWritePermission(PowerRecord::class)
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+            HealthPermission.getWritePermission(ExerciseSessionRecord::class)
         )
     }
 
-    suspend fun getAllHealthData(): HealthData? {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) {
-            Log.w(TAG, "Não é possível obter dados: HC indisponível ou permissões ausentes.")
-            return null
-        }
+    suspend fun <T : Record> validateDataBeforeInsertion(
+        startTime: Instant,
+        endTime: Instant,
+        recordType: KClass<T>
+    ): Boolean {
+        if (!isHealthConnectAvailable) return true
 
         return try {
+            val request = ReadRecordsRequest(
+                recordType = recordType,
+                timeRangeFilter = TimeRangeFilter.between(
+                    startTime.minus(TOLERANCE_DURATION),
+                    endTime.plus(TOLERANCE_DURATION)
+                )
+            )
+
+            val response = healthConnectClient.readRecords(request)
+
+            val hasDuplicates = response.records.any { record ->
+                val recordStart = when (record) {
+                    is StepsRecord -> record.startTime
+                    is HeartRateRecord -> record.startTime
+                    is WeightRecord -> record.time
+                    is DistanceRecord -> record.startTime
+                    is ActiveCaloriesBurnedRecord -> record.startTime
+                    else -> null
+                }
+
+                val recordEnd = when (record) {
+                    is StepsRecord -> record.endTime
+                    is HeartRateRecord -> record.endTime
+                    is WeightRecord -> record.time
+                    is DistanceRecord -> record.endTime
+                    is ActiveCaloriesBurnedRecord -> record.endTime
+                    else -> null
+                }
+
+                if (recordStart != null && recordEnd != null) {
+                    val overlap = !(recordEnd.isBefore(startTime) || recordStart.isAfter(endTime))
+                    if (overlap) {
+                        Log.w(TAG, "Sobreposição detectada para ${recordType.simpleName}")
+                    }
+                    overlap
+                } else false
+            }
+
+            if (hasDuplicates) {
+                Log.w(
+                    TAG,
+                    "Dados duplicados detectados para ${recordType.simpleName} - inserção cancelada"
+                )
+            }
+
+            !hasDuplicates
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao validar duplicação para ${recordType.simpleName}", e)
+            true
+        }
+    }
+
+    suspend fun getAllHealthData(): HealthData? {
+        if (!isHealthConnectAvailable) return null
+
+        return try {
+            val steps = readStepsData()
+            val heartRate = readHeartRateData()
+            val weight = readWeightData()
+            val distance = readDistanceData()
+            val sleep = readSleepData()
+            val exercises = readExerciseData()
+            val aggregated = getAggregatedData()
+
             HealthData(
-                steps = readStepsData(),
-                heartRate = readHeartRateData(),
-                weight = readWeightData(),
-                distance = readDistanceData(),
-                sleep = readSleepData(),
-                exercises = readExerciseData(),
-                aggregated = getAggregatedData()
+                steps = steps,
+                heartRate = heartRate,
+                weight = weight,
+                distance = distance,
+                sleep = sleep,
+                exercises = exercises,
+                aggregated = aggregated
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao obter todos os dados de saúde", e)
+            Log.e(TAG, "Erro ao buscar dados do Health Connect", e)
             null
         }
     }
 
-    fun startExercise(exerciseType: Int, title: String): Boolean {
+    fun startExercise(sessionType: Int, title: String): Boolean {
         if (!isHealthConnectAvailable) {
             Log.w(TAG, "Health Connect não disponível para iniciar exercício")
             return false
         }
 
         if (activeExerciseSession != null) {
-            Log.w(TAG, "Já existe uma sessão de exercício ativa.")
+            Log.w(TAG, "Já existe uma sessão de exercício ativa")
             return false
         }
 
         activeExerciseSession = ActiveExerciseSession(
-            sessionType = exerciseType,
+            sessionType = sessionType,
             title = title,
             startTime = Instant.now()
         )
 
-        Log.i(TAG, "Exercício iniciado: $title")
+        Log.i(TAG, "Exercício iniciado: $title (tipo: $sessionType)")
         return true
     }
 
-    suspend fun finishExercise(caloriesBurned: Double? = null, notes: String? = null): Boolean {
-        if (!isHealthConnectAvailable) return false
-
-        val session = activeExerciseSession ?: run {
-            Log.w(TAG, "Nenhuma sessão de exercício ativa para finalizar.")
-            return false
-        }
-
-        return try {
-            val endTime = Instant.now()
-            val recordsToInsert = mutableListOf<Record>()
-
-            caloriesBurned?.let { calories ->
-                if (calories > 0) {
-                    val caloriesRecord = ActiveCaloriesBurnedRecord(
-                        startTime = session.startTime,
-                        startZoneOffset = ZonedDateTime.now().offset,
-                        endTime = endTime,
-                        endZoneOffset = ZonedDateTime.now().offset,
-                        energy = Energy.kilocalories(calories),
-                        metadata = Metadata.autoRecorded(device),
-                    )
-                    recordsToInsert.add(caloriesRecord)
-                }
-            }
-
-            if (recordsToInsert.isNotEmpty()) {
-                healthConnectClient.insertRecords(recordsToInsert)
-            }
-
-            activeExerciseSession = null
-            Log.i(TAG, "Exercício finalizado e salvo: ${session.title}")
-            true
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Erro ao finalizar e salvar exercício '${session.title}'", e)
-            false
-        }
-    }
-
-    suspend fun finishExerciseWithMultipleRecords(
-        caloriesBurned: Double? = null,
-        distanceKm: Double? = null,
-        steps: Long? = null,
-        heartRateAvg: Long? = null
-    ): Boolean {
-        if (!isHealthConnectAvailable) return false
-
+    suspend fun finishExerciseComplete(workoutSummary: WorkoutSummary): Boolean {
         val session = activeExerciseSession ?: return false
 
-        return try {
-            val endTime = Instant.now()
-            val recordsToInsert = mutableListOf<Record>()
-
-            caloriesBurned?.let { calories ->
-                if (calories > 0) {
-                    recordsToInsert.add(
-                        ActiveCaloriesBurnedRecord(
-                            startTime = session.startTime,
-                            startZoneOffset = ZonedDateTime.now().offset,
-                            endTime = endTime,
-                            endZoneOffset = ZonedDateTime.now().offset,
-                            energy = Energy.kilocalories(calories),
-                            metadata = Metadata.autoRecorded(device),
-                        )
-                    )
-                }
-            }
-
-            distanceKm?.let { distance ->
-                if (distance > 0) {
-                    recordsToInsert.add(
-                        DistanceRecord(
-                            distance = Length.kilometers(distance),
-                            startTime = session.startTime,
-                            startZoneOffset = ZonedDateTime.now().offset,
-                            endTime = endTime,
-                            endZoneOffset = ZonedDateTime.now().offset,
-                            metadata = Metadata.autoRecorded(device),
-                        )
-                    )
-                }
-            }
-
-            steps?.let { stepCount ->
-                if (stepCount > 0) {
-                    recordsToInsert.add(
-                        StepsRecord(
-                            count = stepCount,
-                            startTime = session.startTime,
-                            startZoneOffset = ZonedDateTime.now().offset,
-                            endTime = endTime,
-                            endZoneOffset = ZonedDateTime.now().offset,
-                            metadata = Metadata.autoRecorded(device),
-                        )
-                    )
-                }
-            }
-
-            heartRateAvg?.let { avgHr ->
-                if (avgHr > 0) {
-                    recordsToInsert.add(
-                        HeartRateRecord(
-                            startTime = session.startTime,
-                            startZoneOffset = ZonedDateTime.now().offset,
-                            endTime = endTime,
-                            endZoneOffset = ZonedDateTime.now().offset,
-                            samples = listOf(
-                                HeartRateRecord.Sample(
-                                    time = session.startTime,
-                                    beatsPerMinute = avgHr
-                                )
-                            ),
-                            metadata = Metadata.autoRecorded(device),
-                        )
-                    )
-                }
-            }
-
-            if (recordsToInsert.isNotEmpty()) {
-                healthConnectClient.insertRecords(recordsToInsert)
-            }
-
-            activeExerciseSession = null
-            Log.i(TAG, "Exercício finalizado com ${recordsToInsert.size} records: ${session.title}")
-            true
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Erro ao finalizar exercício '${session.title}'", e)
-            false
-        }
+        return finishExerciseWithValidation(
+            caloriesBurned = workoutSummary.caloriesBurned,
+            distanceKm = workoutSummary.distanceKm,
+            steps = workoutSummary.steps,
+            avgHeartRate = workoutSummary.averageHeartRate,
+            notes = "Exercício registrado via app - Duração: ${workoutSummary.duration}"
+        )
     }
 
-    suspend fun finishExerciseComplete(
+    suspend fun finishExerciseWithValidation(
         caloriesBurned: Double? = null,
         distanceKm: Double? = null,
         steps: Long? = null,
         avgHeartRate: Long? = null,
-        maxHeartRate: Long? = null,
-        avgSpeedKmh: Double? = null
-    ): WorkoutSummary? {
-        val session = activeExerciseSession ?: return null
+        notes: String? = null
+    ): Boolean {
+        val session = activeExerciseSession ?: return false
         val endTime = Instant.now()
 
-        finishExerciseWithMultipleRecords(caloriesBurned, distanceKm, steps, avgHeartRate)
+        return try {
+            var recordsSaved = 0
 
-        return WorkoutSummary(
-            exerciseType = session.sessionType,
-            title = session.title,
-            startTime = session.startTime,
-            endTime = endTime,
-            duration = Duration.between(session.startTime, endTime),
-            caloriesBurned = caloriesBurned,
-            distanceKm = distanceKm,
-            steps = steps,
-            averageHeartRate = avgHeartRate,
-            maxHeartRate = maxHeartRate,
-            averageSpeed = avgSpeedKmh
-        )
+            caloriesBurned?.let { calories ->
+                if (calories > 0 && validateDataBeforeInsertion(
+                        session.startTime,
+                        endTime,
+                        ActiveCaloriesBurnedRecord::class
+                    )
+                ) {
+                    if (writeCaloriesData(calories, session.startTime, endTime)) {
+                        recordsSaved++
+                    }
+                }
+            }
+
+            distanceKm?.let { distance ->
+                if (distance > 0 && validateDataBeforeInsertion(
+                        session.startTime,
+                        endTime,
+                        DistanceRecord::class
+                    )
+                ) {
+                    if (writeDistanceData(distance, session.startTime, endTime)) {
+                        recordsSaved++
+                    }
+                }
+            }
+
+            steps?.let { stepCount ->
+                if (stepCount > 0 && validateDataBeforeInsertion(
+                        session.startTime,
+                        endTime,
+                        StepsRecord::class
+                    )
+                ) {
+                    if (writeStepsData(stepCount, session.startTime, endTime)) {
+                        recordsSaved++
+                    }
+                }
+            }
+
+            avgHeartRate?.let { heartRate ->
+                if (heartRate > 0) {
+                    if (writeHeartRateData(heartRate, session.startTime, endTime)) {
+                        recordsSaved++
+                    }
+                }
+            }
+
+            if (recordsSaved > 0) {
+                Log.i(TAG, "Exercício completo salvo com $recordsSaved registros: ${session.title}")
+            } else {
+                Log.w(TAG, "Nenhum dado foi salvo para o exercício: ${session.title}")
+            }
+
+            activeExerciseSession = null
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao finalizar exercício com validação", e)
+            false
+        }
     }
 
     suspend fun cancelExercise(): Boolean {
-        if (activeExerciseSession == null) return false
-        activeExerciseSession = null
-        Log.i(TAG, "Sessão de exercício cancelada.")
-        return true
+        return if (activeExerciseSession != null) {
+            Log.i(TAG, "Exercício cancelado: ${activeExerciseSession?.title}")
+            activeExerciseSession = null
+            true
+        } else {
+            false
+        }
     }
 
     fun getActiveExerciseSession(): ActiveExerciseSession? = activeExerciseSession
 
     suspend fun writeStepsData(steps: Long, startTime: Instant, endTime: Instant): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
+        if (!isHealthConnectAvailable || !validateDataBeforeInsertion(
+                startTime,
+                endTime,
+                StepsRecord::class
+            )
+        ) {
+            return false
+        }
 
         return try {
             val stepsRecord = StepsRecord(
-                count = steps,
                 startTime = startTime,
-                startZoneOffset = ZonedDateTime.now().offset,
+                startZoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime),
                 endTime = endTime,
-                endZoneOffset = ZonedDateTime.now().offset,
-                metadata = Metadata.autoRecorded(device),
+                endZoneOffset = ZoneOffset.systemDefault().rules.getOffset(endTime),
+                count = steps,
+                metadata = Metadata.autoRecorded(device)
             )
 
             healthConnectClient.insertRecords(listOf(stepsRecord))
-            Log.i(TAG, "Passos inseridos: $steps")
+            Log.i(TAG, "Dados de passos salvos: $steps passos")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de passos", e)
+            Log.e(TAG, "Erro ao salvar dados de passos", e)
             false
         }
     }
 
     suspend fun writeWeightData(weightKg: Double, time: Instant): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
+        if (!isHealthConnectAvailable || !validateDataBeforeInsertion(
+                time,
+                time,
+                WeightRecord::class
+            )
+        ) {
+            return false
+        }
 
         return try {
             val weightRecord = WeightRecord(
-                weight = Mass.kilograms(weightKg),
                 time = time,
-                zoneOffset = ZonedDateTime.now().offset,
-                metadata = Metadata.autoRecorded(device),
+                zoneOffset = ZoneOffset.systemDefault().rules.getOffset(time),
+                weight = Mass.kilograms(weightKg),
+                metadata = Metadata.autoRecorded(device)
             )
 
             healthConnectClient.insertRecords(listOf(weightRecord))
-            Log.i(TAG, "Peso inserido: ${weightKg}kg")
+            Log.i(TAG, "Dados de peso salvos: ${weightKg}kg")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de peso", e)
+            Log.e(TAG, "Erro ao salvar dados de peso", e)
             false
         }
     }
@@ -388,99 +371,97 @@ class HealthConnectService(private val context: Context) {
         startTime: Instant,
         endTime: Instant
     ): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
+        if (!isHealthConnectAvailable || !validateDataBeforeInsertion(
+                startTime,
+                endTime,
+                DistanceRecord::class
+            )
+        ) {
+            return false
+        }
 
         return try {
             val distanceRecord = DistanceRecord(
-                distance = Length.kilometers(distanceKm),
                 startTime = startTime,
-                startZoneOffset = ZonedDateTime.now().offset,
+                startZoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime),
                 endTime = endTime,
-                endZoneOffset = ZonedDateTime.now().offset,
-                metadata = Metadata.autoRecorded(device),
+                endZoneOffset = ZoneOffset.systemDefault().rules.getOffset(endTime),
+                distance = Length.kilometers(distanceKm),
+                metadata = Metadata.autoRecorded(device)
             )
 
             healthConnectClient.insertRecords(listOf(distanceRecord))
-            Log.i(TAG, "Distância inserida: ${distanceKm}km")
+            Log.i(TAG, "Dados de distância salvos: ${distanceKm}km")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de distância", e)
+            Log.e(TAG, "Erro ao salvar dados de distância", e)
             false
         }
     }
 
     suspend fun writeCaloriesData(calories: Double, startTime: Instant, endTime: Instant): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
+        if (!isHealthConnectAvailable || !validateDataBeforeInsertion(
+                startTime,
+                endTime,
+                ActiveCaloriesBurnedRecord::class
+            )
+        ) {
+            return false
+        }
 
         return try {
             val caloriesRecord = ActiveCaloriesBurnedRecord(
                 startTime = startTime,
-                startZoneOffset = ZonedDateTime.now().offset,
+                startZoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime),
                 endTime = endTime,
-                endZoneOffset = ZonedDateTime.now().offset,
+                endZoneOffset = ZoneOffset.systemDefault().rules.getOffset(endTime),
                 energy = Energy.kilocalories(calories),
-                metadata = Metadata.autoRecorded(device),
+                metadata = Metadata.autoRecorded(device)
             )
 
             healthConnectClient.insertRecords(listOf(caloriesRecord))
-            Log.i(TAG, "Calorias inseridas: $calories kcal")
+            Log.i(TAG, "Dados de calorias salvos: ${calories}kcal")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de calorias", e)
+            Log.e(TAG, "Erro ao salvar dados de calorias", e)
             false
         }
     }
 
-    suspend fun writeSpeedData(speedKmh: Double, startTime: Instant, endTime: Instant): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
-
-        return try {
-            val speedRecord = SpeedRecord(
-                startTime = startTime,
-                startZoneOffset = ZonedDateTime.now().offset,
-                endTime = endTime,
-                endZoneOffset = ZonedDateTime.now().offset,
-                samples = listOf(
-                    SpeedRecord.Sample(
-                        time = startTime,
-                        speed = Velocity.kilometersPerHour(speedKmh)
-                    )
-                ),
-                metadata = Metadata.autoRecorded(device),
+    suspend fun writeHeartRateData(
+        beatsPerMinute: Long,
+        startTime: Instant,
+        endTime: Instant
+    ): Boolean {
+        if (!isHealthConnectAvailable || !validateDataBeforeInsertion(
+                startTime,
+                endTime,
+                HeartRateRecord::class
             )
-
-            healthConnectClient.insertRecords(listOf(speedRecord))
-            Log.i(TAG, "Velocidade inserida: ${speedKmh}km/h")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de velocidade", e)
-            false
+        ) {
+            return false
         }
-    }
-
-    suspend fun writePowerData(watts: Double, startTime: Instant, endTime: Instant): Boolean {
-        if (!isHealthConnectAvailable || !checkAllPermissions()) return false
 
         return try {
-            val powerRecord = PowerRecord(
+            val heartRateRecord = HeartRateRecord(
                 startTime = startTime,
-                startZoneOffset = ZonedDateTime.now().offset,
+                startZoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime),
                 endTime = endTime,
-                endZoneOffset = ZonedDateTime.now().offset,
+                endZoneOffset = ZoneOffset.systemDefault().rules.getOffset(endTime),
                 samples = listOf(
-                    PowerRecord.Sample(
+                    HeartRateRecord.Sample(
                         time = startTime,
-                        power = Power.watts(watts)
+                        beatsPerMinute = beatsPerMinute
                     )
                 ),
-                metadata = Metadata.autoRecorded(device),
+                metadata = Metadata.autoRecorded(device)
             )
 
-            healthConnectClient.insertRecords(listOf(powerRecord))
-            Log.i(TAG, "Potência inserida: ${watts}W")
+            healthConnectClient.insertRecords(listOf(heartRateRecord))
+            Log.i(TAG, "Dados de frequência cardíaca salvos: ${beatsPerMinute}bpm")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inserir dados de potência", e)
+            Log.e(TAG, "Erro ao salvar dados de frequência cardíaca", e)
             false
         }
     }
@@ -492,7 +473,7 @@ class HealthConnectService(private val context: Context) {
             val request = ReadRecordsRequest(
                 recordType = StepsRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(7)),
                     Instant.now()
                 )
             )
@@ -518,17 +499,19 @@ class HealthConnectService(private val context: Context) {
             val request = ReadRecordsRequest(
                 recordType = HeartRateRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(7)),
                     Instant.now()
                 )
             )
 
             val response = healthConnectClient.readRecords(request)
-            response.records.map { record ->
-                HeartRateData(
-                    beatsPerMinute = record.samples.firstOrNull()?.beatsPerMinute ?: 0L,
-                    time = record.startTime
-                )
+            response.records.flatMap { record ->
+                record.samples.map { sample ->
+                    HeartRateData(
+                        beatsPerMinute = sample.beatsPerMinute,
+                        time = sample.time
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao ler dados de frequência cardíaca", e)
@@ -543,7 +526,7 @@ class HealthConnectService(private val context: Context) {
             val request = ReadRecordsRequest(
                 recordType = WeightRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(30 * 24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(30)),
                     Instant.now()
                 )
             )
@@ -568,7 +551,7 @@ class HealthConnectService(private val context: Context) {
             val request = ReadRecordsRequest(
                 recordType = DistanceRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(7 * 24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(7)),
                     Instant.now()
                 )
             )
@@ -594,7 +577,7 @@ class HealthConnectService(private val context: Context) {
             val request = ReadRecordsRequest(
                 recordType = SleepSessionRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(7 * 24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(7)),
                     Instant.now()
                 )
             )
@@ -604,8 +587,7 @@ class HealthConnectService(private val context: Context) {
                 SleepData(
                     startTime = record.startTime,
                     endTime = record.endTime,
-                    duration = Duration.between(record.startTime, record.endTime),
-                    stages = emptyList()
+                    duration = Duration.between(record.startTime, record.endTime)
                 )
             }
         } catch (e: Exception) {
@@ -619,9 +601,9 @@ class HealthConnectService(private val context: Context) {
 
         return try {
             val request = ReadRecordsRequest(
-                recordType = ActiveCaloriesBurnedRecord::class,
+                recordType = ExerciseSessionRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(7 * 24 * 60 * 60),
+                    Instant.now().minus(Duration.ofDays(7)),
                     Instant.now()
                 )
             )
@@ -629,12 +611,12 @@ class HealthConnectService(private val context: Context) {
             val response = healthConnectClient.readRecords(request)
             response.records.map { record ->
                 ExerciseData(
-                    sessionType = EXERCISE_TYPE_WALKING,
-                    title = "Atividade",
+                    sessionType = record.exerciseType,
+                    title = record.title ?: "Exercício",
                     startTime = record.startTime,
                     endTime = record.endTime,
                     duration = Duration.between(record.startTime, record.endTime),
-                    caloriesBurned = record.energy.inKilocalories
+                    caloriesBurned = 0.0
                 )
             }
         } catch (e: Exception) {
@@ -647,19 +629,19 @@ class HealthConnectService(private val context: Context) {
         if (!isHealthConnectAvailable) return null
 
         return try {
-            val aggregateRequest = AggregateRequest(
+            val today = Instant.now()
+            val startOfDay = today.minus(Duration.ofDays(1))
+
+            val request = AggregateRequest(
                 metrics = setOf(
                     StepsRecord.COUNT_TOTAL,
-                    DistanceRecord.DISTANCE_TOTAL,
-                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL
+                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
+                    DistanceRecord.DISTANCE_TOTAL
                 ),
-                timeRangeFilter = TimeRangeFilter.between(
-                    Instant.now().minusSeconds(24 * 60 * 60),
-                    Instant.now()
-                )
+                timeRangeFilter = TimeRangeFilter.between(startOfDay, today)
             )
 
-            val response = healthConnectClient.aggregate(aggregateRequest)
+            val response = healthConnectClient.aggregate(request)
 
             AggregatedData(
                 totalSteps = response[StepsRecord.COUNT_TOTAL] ?: 0L,
@@ -668,12 +650,11 @@ class HealthConnectService(private val context: Context) {
                     ?: 0.0
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao obter dados agregados", e)
+            Log.e(TAG, "Erro ao buscar dados agregados", e)
             null
         }
     }
 
-    // Métodos de conveniência
     fun startWalking(title: String = "Caminhada") = startExercise(EXERCISE_TYPE_WALKING, title)
     fun startRunning(title: String = "Corrida") = startExercise(EXERCISE_TYPE_RUNNING, title)
     fun startCycling(title: String = "Ciclismo") = startExercise(EXERCISE_TYPE_CYCLING, title)
