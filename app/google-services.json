@@ -1,0 +1,87 @@
+{
+  "project_info": {
+    "project_number": "1084557816281",
+    "project_id": "socialfitpm46s",
+    "storage_bucket": "socialfitpm46s.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084557816281:android:9598a023a2a323bd5769c8",
+        "android_client_info": {
+          "package_name": "br.edu.utfpr.social_pm46s"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1084557816281-fsphi5hot0nkkng3h41kq45n05n4ng7k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "e2efd63a913107b0506a3f0956ae8ae68e88a252"
+          }
+        },
+        {
+          "client_id": "1084557816281-i5n6ieq5ia4hjag4h2vnv2kt09983d10.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "f98623d8ff4a9524cb1a4ccd7b3c802449182a22"
+          }
+        },
+        {
+          "client_id": "1084557816281-q721487v2rpnpk01mpscb7bhu6uajkv7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "e4a55ebb2612dc1b9b7b6a968eb56f4a617ae713"
+          }
+        },
+        {
+          "client_id": "1084557816281-tl10q1ge7e0dgp9rf4u0ajpd7rl9l32g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "7c90ede9d96e35e779f9fbdcf303df87f5072481"
+          }
+        },
+        {
+          "client_id": "1084557816281-ubv1bnooipinc3849jq4rrg7i69jf4re.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "5dac35558c3bb735ad804bf23199c915f306e48f"
+          }
+        },
+        {
+          "client_id": "1084557816281-uo074j0bc2f9tn0jfg96fin1kqoo8h6f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.edu.utfpr.social_pm46s",
+            "certificate_hash": "08fbe05767d5834bc0abcc9c15ef2298ab842aed"
+          }
+        },
+        {
+          "client_id": "1084557816281-8r3odquj2meclhrnpott6vj5mseuk9qc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDg-8hzuV6jNLaP4phB_bB0mYNH2-KXcU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1084557816281-8r3odquj2meclhrnpott6vj5mseuk9qc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
