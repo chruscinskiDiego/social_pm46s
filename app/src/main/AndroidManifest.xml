@@ -44,6 +44,12 @@
 
         <service android:name=".service.HealthConnectService" />
 
+        <service
+            android:name=".service.FitnessTrackingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location|dataSync" />
+
     </application>
 
     <queries>

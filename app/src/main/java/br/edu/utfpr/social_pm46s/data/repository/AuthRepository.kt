@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -28,8 +30,40 @@ class AuthRepository(private val context: Context) {
         return GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(webClientId)
-            // .setAutoSelectEnabled(true)
             .build()
+    }
+
+    suspend fun signInWithGoogle(): FirebaseUser? {
+        return try {
+            val googleIdOption = createGetGoogleIdOption()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            val result = credentialManager.getCredential(
+                request = request,
+                context = context,
+            )
+
+            handleSignInResult(result)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    private suspend fun handleSignInResult(result: GetCredentialResponse): FirebaseUser? {
+        return when (val credential = result.credential) {
+            is CustomCredential -> {
+                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    signInWithGoogleCredential(credential)
+                } else {
+                    null
+                }
+            }
+
+            else -> null
+        }
     }
 
     suspend fun signInWithGoogleCredential(credential: Any): FirebaseUser? {
@@ -50,11 +84,78 @@ class AuthRepository(private val context: Context) {
                 return auth.signInWithCredential(firebaseCredential).await().user
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                // Log exceptions
                 null
             }
         }
         return null
+    }
+
+    suspend fun signInWithEmailAndPassword(email: String, password: String): FirebaseUser? {
+        return try {
+            auth.signInWithEmailAndPassword(email, password).await().user
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun createUserWithEmailAndPassword(email: String, password: String): FirebaseUser? {
+        return try {
+            auth.createUserWithEmailAndPassword(email, password).await().user
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            auth.sendPasswordResetEmail(email).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePassword(newPassword: String): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
+        return try {
+            user.updatePassword(newPassword).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfile(displayName: String? = null, photoUrl: String? = null): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
+        return try {
+            val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                .apply {
+                    displayName?.let { setDisplayName(it) }
+                    photoUrl?.let { setPhotoUri(android.net.Uri.parse(it)) }
+                }
+                .build()
+
+            user.updateProfile(profileUpdates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAccount(): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
+        return try {
+            user.delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
     }
 
     suspend fun signOut() {
@@ -62,6 +163,26 @@ class AuthRepository(private val context: Context) {
         try {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         } catch (e: Exception) {
+            // Log error if needed
+        }
+    }
+
+    fun addAuthStateListener(listener: FirebaseAuth.AuthStateListener) {
+        auth.addAuthStateListener(listener)
+    }
+
+    fun removeAuthStateListener(listener: FirebaseAuth.AuthStateListener) {
+        auth.removeAuthStateListener(listener)
+    }
+
+    suspend fun reloadUser(): Result<Unit> {
+        val user = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
+        return try {
+            user.reload().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Result.failure(e)
         }
     }
 }
