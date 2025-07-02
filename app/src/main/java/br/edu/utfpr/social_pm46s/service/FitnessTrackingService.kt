@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import br.edu.utfpr.social_pm46s.R
@@ -16,12 +15,14 @@ import br.edu.utfpr.social_pm46s.data.model.workout.RealTimeWorkoutData
 import br.edu.utfpr.social_pm46s.data.model.workout.WorkoutStats
 import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import br.edu.utfpr.social_pm46s.data.repository.ActivityRepository
+import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
 import br.edu.utfpr.social_pm46s.tracker.FitnessTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 class FitnessTrackingService : Service() {
 
@@ -42,9 +43,11 @@ class FitnessTrackingService : Service() {
 
     private lateinit var fitnessTracker: FitnessTracker
     private lateinit var workoutRepository: ActivityRepository
-    private lateinit var socialFitnessService: SocialFitnessService
+    private var socialFitnessService: SocialFitnessService? = null
 
     private lateinit var userRepo: UserRepository
+    private lateinit var authRepository: AuthRepository
+    private var currentUserId: String? = null
 
     inner class FitnessTrackingBinder : Binder() {
         fun getService(): FitnessTrackingService = this@FitnessTrackingService
@@ -57,19 +60,31 @@ class FitnessTrackingService : Service() {
         val healthConnectService = HealthConnectService(this)
         fitnessTracker = FitnessTracker(this, healthConnectService)
         workoutRepository = ActivityRepository()
-        socialFitnessService = SocialFitnessService(
-            workoutRepository,
-            userRepo
-        )
+        userRepo = UserRepository()
+        authRepository = AuthRepository(this)
+
+        // Inicializar SocialFitnessService apenas se o usuário estiver logado
+        initializeSocialFitnessService()
 
         createNotificationChannel()
 
         // Observar dados em tempo real para atualizar notificação
-//        serviceScope.launch {
-//            fitnessTracker.realTimeData.collect { workoutData ->
-//                workoutData?.let { updateNotification(it) }
-//            }
-//        }
+        serviceScope.launch {
+            fitnessTracker.realTimeData.collect { workoutData ->
+                workoutData?.let { updateNotification(it) }
+            }
+        }
+    }
+
+    private fun initializeSocialFitnessService() {
+        val currentUser = authRepository.getCurrentUser()
+        currentUser?.uid?.let { userId ->
+            currentUserId = userId
+            socialFitnessService = SocialFitnessService(
+                workoutRepository,
+                userRepo
+            )
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -81,6 +96,7 @@ class FitnessTrackingService : Service() {
                 val title = intent.getStringExtra(EXTRA_WORKOUT_TITLE) ?: "Exercício"
                 startWorkout(type, title)
             }
+
             ACTION_STOP_WORKOUT -> stopWorkout()
             ACTION_PAUSE_WORKOUT -> pauseWorkout()
         }
@@ -92,8 +108,13 @@ class FitnessTrackingService : Service() {
         serviceScope.launch {
             val started = fitnessTracker.startWorkout(type, title)
             if (started) {
-//                startForeground(NOTIFICATION_ID, createWorkoutNotification(title))
-                socialFitnessService.shareWorkoutStart(type, title)
+                val notification = createWorkoutNotification(title)
+                startForeground(NOTIFICATION_ID, notification)
+
+                // Chamar shareWorkoutStart com userId
+                currentUserId?.let { userId ->
+                    socialFitnessService?.shareWorkoutStart(type, title, userId)
+                }
             }
         }
     }
@@ -103,18 +124,17 @@ class FitnessTrackingService : Service() {
             val result = fitnessTracker.finishWorkout(notes)
             result?.let { workout ->
                 workoutRepository.saveWorkout(workout)
-                socialFitnessService.shareWorkoutResult(workout)
+                socialFitnessService?.shareWorkoutResult(workout)
             }
-//            stopForeground(true)
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
 
     fun pauseWorkout() {
         serviceScope.launch {
-            // Implementar lógica de pausa se necessário
             fitnessTracker.cancelWorkout()
-            stopForeground(true)
+            stopForeground(STOP_FOREGROUND_REMOVE)
         }
     }
 
@@ -135,16 +155,69 @@ class FitnessTrackingService : Service() {
         notificationManager.createNotificationChannel(channel)
     }
 
+    private fun createWorkoutNotification(title: String): Notification {
+        val stopIntent = Intent(this, FitnessTrackingService::class.java).apply {
+            action = ACTION_STOP_WORKOUT
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Exercício em andamento")
+            .setContentText(title)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setOngoing(true)
+            .addAction(android.R.drawable.ic_media_pause, "Parar", stopPendingIntent)
+            .build()
+    }
+
+    private fun updateNotification(workoutData: RealTimeWorkoutData) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Exercício em andamento")
+            .setContentText(formatWorkoutData(workoutData))
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setOngoing(true)
+            .build()
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    @SuppressLint("DefaultLocale")
+    private fun formatWorkoutData(data: RealTimeWorkoutData): String {
+        val stats = data.stats
+        val startTime = data.startTime
+        val currentTime = Instant.now()
+
+        // Calcular duração desde o início
+        val durationMillis = java.time.Duration.between(startTime, currentTime).toMillis()
+        val duration = "${(durationMillis / 60000)}min"
+
+        // Usar dados do WorkoutStats
+        val calories = "${stats.estimatedCalories.toInt()}kcal"
+        val distance = stats.distance
+        val steps = stats.steps
+
+        return if (distance > 0) {
+            "$duration • ${String.format("%.2f", distance)}km • $calories"
+        } else {
+            "$duration • $steps passos • $calories"
+        }
+    }
 
     @SuppressLint("DefaultLocale")
     private fun formatWorkoutStats(stats: WorkoutStats): String {
         val duration = "${stats.duration.toMinutes()}min"
         val calories = "${stats.estimatedCalories.toInt()}kcal"
+        val distance = stats.distance
+        val steps = stats.steps
 
-        return if (stats.distance > 0) {
-            "$duration • ${String.format("%.2f", stats.distance)}km • $calories"
+        return if (distance > 0) {
+            "$duration • ${String.format("%.2f", distance)}km • $calories"
         } else {
-            "$duration • ${stats.steps} passos • $calories"
+            "$duration • $steps passos • $calories"
         }
     }
 }
