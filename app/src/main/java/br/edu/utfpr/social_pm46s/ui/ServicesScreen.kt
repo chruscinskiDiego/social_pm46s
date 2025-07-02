@@ -21,12 +21,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.edu.utfpr.social_pm46s.R
+import br.edu.utfpr.social_pm46s.data.UserProfileManager
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
+import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 
 object ServicesScreen : Screen {
     private fun readResolve(): Any = ServicesScreen
@@ -35,11 +39,13 @@ object ServicesScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val authRepository = AuthRepository(context)
         val scope = rememberCoroutineScope()
 
+        // Instanciando os repositórios necessários para a validação
+        val authRepository = AuthRepository(context)
+        val userRepository = UserRepository()
+
         ServicesScreenContent(
-            authRepository = authRepository,
             scope = scope,
             onLogoutClick = {
                 scope.launch {
@@ -52,7 +58,20 @@ object ServicesScreen : Screen {
                     )
                 }
             },
-            onMonitoringClick = { navigator.push(MonitoringScreen) },
+            onEditProfileClick = { navigator.push(UserProfileScreen) },
+            onMonitoringClick = {
+                scope.launch {
+                    val userId = authRepository.getCurrentUser()?.uid
+                    val user = if (userId != null) userRepository.getUser(userId) else null
+
+                    if (userId == null || !UserProfileManager.isProfileComplete(userId)) {
+                        navigator.push(UserProfileScreen)
+                    } else {
+                        Toast.makeText(context, "Por favor, complete seu perfil antes de iniciar uma atividade.", Toast.LENGTH_LONG).show()
+                        navigator.push(MonitoringScreen)
+                    }
+                }
+            },
             onGroupsClick = { navigator.push(GroupsScreen) },
             onRankingClick = { navigator.push(RankingScreen) }
         )
@@ -62,9 +81,9 @@ object ServicesScreen : Screen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServicesScreenContent(
-    authRepository: AuthRepository,
     scope: CoroutineScope,
     onLogoutClick: () -> Unit,
+    onEditProfileClick: () -> Unit,
     onMonitoringClick: () -> Unit,
     onGroupsClick: () -> Unit,
     onRankingClick: () -> Unit,
@@ -84,10 +103,8 @@ private fun ServicesScreenContent(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Título da tela
             HeaderSection()
 
-            // Cards de serviços
             ServicesSection(
                 onMonitoringClick = onMonitoringClick,
                 onGroupsClick = onGroupsClick,
@@ -95,8 +112,7 @@ private fun ServicesScreenContent(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Botão de logout
+            EditProfileSection(onEditProfileClick = onEditProfileClick)
             LogoutSection(onLogoutClick = onLogoutClick)
         }
     }
@@ -142,6 +158,24 @@ private fun ServicesSection(
             title = "Ranking Geral",
             imageResId = R.drawable.ranking,
             onClick = onRankingClick
+        )
+    }
+}
+
+@Composable
+private fun EditProfileSection(
+    onEditProfileClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onEditProfileClick,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "Editar Perfil",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(vertical = 8.dp)
         )
     }
 }
@@ -257,51 +291,6 @@ private fun ServiceCard(
 //        }
 //    }
 //}
-
-object GroupsScreen : Screen {
-    private fun readResolve(): Any = GroupsScreen
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .systemBarsPadding(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "Tela de Grupos",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Button(
-                        onClick = { navigator.pop() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text("Voltar")
-                    }
-                }
-            }
-        }
-    }
-}
 
 private suspend fun handleLogout(
     context: Context,

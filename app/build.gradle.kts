@@ -52,6 +52,9 @@ plugins {
     }
 
     dependencies {
+
+        implementation("io.coil-kt:coil-compose:2.5.0")
+
         // Core Android dependencies
         implementation(libs.androidx.core.ktx)
         implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -107,5 +110,6 @@ plugins {
         debugImplementation(libs.androidx.ui.tooling)
         debugImplementation(libs.androidx.ui.test.manifest)
         implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+        implementation("com.google.firebase:firebase-storage-ktx:20.3.0")
 
     }

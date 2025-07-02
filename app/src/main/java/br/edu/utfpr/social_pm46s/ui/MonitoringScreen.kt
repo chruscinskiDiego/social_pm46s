@@ -26,6 +26,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import android.os.Build
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
@@ -312,7 +314,11 @@ private fun BackButton(onClick: () -> Unit, isTracking: Boolean) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        enabled = !isTracking // Desabilita o botão enquanto o treino está ativo
+        enabled = !isTracking,
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        )
     ) {
         Text("Voltar ao Menu", modifier = Modifier.padding(vertical = 8.dp))
     }
