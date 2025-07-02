@@ -35,7 +35,7 @@ object MainScreen : Screen {
                 scope.launch {
                     authRepository.signOut()
                     // Substitui a tela atual pela de Login
-                    navigator.replaceAll(LoginScreen)
+                    navigator.replaceAll(LoginScreen())
                 }
             },
             onFirestoreTestClick = { /* Sua lógica de teste aqui */ },

@@ -48,7 +48,7 @@ object ServicesScreen : Screen {
                 onClick = {
                     scope.launch {
                         authRepository.signOut()
-                        navigator.replaceAll(LoginScreen)
+                        navigator.replaceAll(LoginScreen())
                     }
                 },
                 modifier = Modifier.fillMaxWidth()

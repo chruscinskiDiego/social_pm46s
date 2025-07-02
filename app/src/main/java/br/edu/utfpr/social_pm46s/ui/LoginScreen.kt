@@ -1,3 +1,4 @@
+// Em ui/LoginScreen.kt ou ui/AppScreens.kt
 package br.edu.utfpr.social_pm46s.ui
 
 import android.content.Context
@@ -15,16 +16,18 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
+import br.edu.utfpr.social_pm46s.data.repository.UserRepository // 1. IMPORTAMOS O REPOSITÓRIO CORRETO
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
 
-object LoginScreen : Screen {
+class LoginScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
+        // Este callback agora só será chamado após a autenticação E o salvamento no banco
         LoginScreenContent(
             onLoginSuccess = {
                 navigator.replaceAll(ServicesScreen)
@@ -39,6 +42,7 @@ private fun LoginScreenContent(
 ) {
     val context = LocalContext.current
     val authRepository = AuthRepository(context)
+    val userRepository = UserRepository() // 2. INSTANCIAMOS O USER REPOSITORY
     val scope = rememberCoroutineScope()
     val credentialManager = CredentialManager.create(context)
 
@@ -62,12 +66,22 @@ private fun LoginScreenContent(
                         val user = authRepository.signInWithGoogleCredential(result.credential)
 
                         if (user != null) {
-                            onLoginSuccess() // Chama o callback!
+                            // --- AJUSTE PRINCIPAL AQUI ---
+                            // 3. APÓS O LOGIN, SALVAMOS O USUÁRIO NO FIRESTORE
+                            userRepository.saveOrUpdateUserFromGoogle(
+                                userId = user.uid,
+                                email = user.email ?: "",
+                                displayName = user.displayName ?: "",
+                                photoUrl = user.photoUrl?.toString() ?: ""
+                            )
+                            // --- FIM DO AJUSTE ---
+
+                            // 4. Somente após salvar, consideramos o processo um sucesso
+                            onLoginSuccess()
                         } else {
                             showToast(context, "Login failed")
                         }
                     } catch (e: GetCredentialException) {
-                        // Ignora o erro de cancelamento pelo usuário para não poluir a tela
                         if (e.type != "androidx.credentials.exceptions.NoCredentialException") {
                             showToast(context, "Sign-in failed: ${e.message}")
                         }
