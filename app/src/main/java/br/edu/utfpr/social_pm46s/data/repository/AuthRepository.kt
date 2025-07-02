@@ -12,15 +12,17 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
 import java.util.concurrent.CancellationException
+import androidx.core.net.toUri
 
 class AuthRepository(private val context: Context) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
 
-    // Web Client ID from Firebase console (Authentication -> Sign-in method -> Google)
-    // Or from your google-services.json: projects[].oauth_client[].client_id where client_type is 3
-    private val webClientId = "YOUR_WEB_CLIENT_ID" // Make sure to replace this
+    // Extrair webClientId do google-services.json
+    private val webClientId = "1084557816281-8r3odquj2meclhrnpott6vj5mseuk9qc.apps.googleusercontent.com"
+
 
     fun getCurrentUser(): FirebaseUser? = auth.currentUser
 
@@ -135,7 +137,7 @@ class AuthRepository(private val context: Context) {
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .apply {
                     displayName?.let { setDisplayName(it) }
-                    photoUrl?.let { setPhotoUri(android.net.Uri.parse(it)) }
+                    photoUrl?.let { photoUri = it.toUri() }
                 }
                 .build()
 
