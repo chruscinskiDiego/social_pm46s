@@ -84,10 +84,8 @@ private fun MainScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Cabeçalho
             HeaderSection()
 
-            // Informações do usuário
             UserInfoSection(currentUser = currentUser)
 
             HorizontalDivider(
@@ -95,7 +93,6 @@ private fun MainScreenContent(
                 color = MaterialTheme.colorScheme.outline
             )
 
-            // Botões principais
             MainActionsSection(
                 onNavigateToServices = onNavigateToServices,
                 scope = scope,
@@ -107,7 +104,6 @@ private fun MainScreenContent(
                 color = MaterialTheme.colorScheme.outline
             )
 
-            // Botão de logout
             LogoutSection(onSignOutClick = onSignOutClick)
         }
     }
@@ -172,7 +168,6 @@ private fun MainActionsSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Botão principal de serviços
         Button(
             onClick = onNavigateToServices,
             modifier = Modifier.fillMaxWidth(),
@@ -192,7 +187,6 @@ private fun MainActionsSection(
             )
         }
 
-        // Botões de teste
         OutlinedButton(
             onClick = {
                 scope.launch {

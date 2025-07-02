@@ -70,12 +70,10 @@ private fun LoginScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Seção de boas-vindas
             WelcomeSection()
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Botão de login
             LoginButton(
                 onClick = {
                     scope.launch {
@@ -145,7 +143,6 @@ private fun LoginButton(
     }
 }
 
-// Resto do código permanece igual...
 private suspend fun handleGoogleSignIn(
     context: Context,
     authRepository: AuthRepository,

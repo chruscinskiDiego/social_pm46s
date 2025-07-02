@@ -107,7 +107,6 @@ private fun GroupsScreenContent(
                     val usuariosGrupo = usuarioGrupoRepository.getGroupMembers(group.id)
                     val users = usuariosGrupo.mapNotNull { userRepository.getUser(it.idUsuario) }
                     membersMap[group.id] = users
-                    // Score do grupo: soma dos scores dos membros
                     var groupScore = 0
                     for (user in users) {
                         groupScore += calculateUserScore(user.id)
@@ -116,7 +115,6 @@ private fun GroupsScreenContent(
                 }
                 groupMembers = membersMap
                 groupScores = scoresMap
-                // Ordenar grupos pelo score
                 userGroups = all.filter { it.id in userGroupIds }
                     .sortedByDescending { scoresMap[it.id] ?: 0 }
                 allGroups = all.sortedByDescending { scoresMap[it.id] ?: 0 }
@@ -273,7 +271,6 @@ private fun GroupsScreenContent(
                 Text("Voltar")
             }
         }
-        // Dialog de detalhes/criação de grupo
         if (showCreateDialog) {
             CreateGroupDialog(
                 onDismiss = { showCreateDialog = false },
@@ -294,7 +291,6 @@ private fun GroupsScreenContent(
                 }
             )
         }
-        // Dialog de detalhes do grupo
         selectedGroup?.let { group ->
             GroupDetailDialog(
                 group = group,
@@ -410,14 +406,12 @@ private fun CreateGroupDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Tipo de grupo (público/privado)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Tipo:")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(tipoGrupo)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                // Seleção de imagem
                 Button(onClick = { launcher.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
                     Text("Selecionar Imagem")
                 }
@@ -488,7 +482,6 @@ private fun GroupDetailDialog(
     var memberScores by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     val scope = rememberCoroutineScope()
 
-    // Calcula os scores dos membros ao abrir o dialog
     LaunchedEffect(members) {
         scope.launch {
             val scores = mutableMapOf<String, Int>()

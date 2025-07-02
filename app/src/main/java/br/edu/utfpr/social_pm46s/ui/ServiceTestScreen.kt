@@ -38,12 +38,10 @@ fun ServiceTestScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Services
     var healthConnectService by remember { mutableStateOf<HealthConnectService?>(null) }
     var socialFitnessService by remember { mutableStateOf<SocialFitnessService?>(null) }
     var fitnessTrackingService by remember { mutableStateOf<FitnessTrackingService?>(null) }
 
-    // Service connection para FitnessTrackingService
     val serviceConnection = remember {
         object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -57,13 +55,11 @@ fun ServiceTestScreen(
         }
     }
 
-    // Estados
     var testResults by remember { mutableStateOf("") }
     var isTracking by remember { mutableStateOf(false) }
     val realTimeData by fitnessTrackingService?.getRealTimeData()?.collectAsStateWithLifecycle()
         ?: remember { mutableStateOf(null) }
 
-    // Inicializar services
     LaunchedEffect(Unit) {
         healthConnectService = HealthConnectService(context)
 
@@ -73,7 +69,6 @@ fun ServiceTestScreen(
 
         socialFitnessService = SocialFitnessService(activityRepository, userRepository)
 
-        // Bind ao FitnessTrackingService
         val intent = Intent(context, FitnessTrackingService::class.java)
         context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
@@ -104,7 +99,6 @@ fun ServiceTestScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Health Connect Service Tests
             ServiceTestSection(
                 title = "Health Connect Service",
                 tests = listOf(
@@ -141,7 +135,6 @@ fun ServiceTestScreen(
                 )
             )
 
-            // Social Fitness Service Tests
             ServiceTestSection(
                 title = "Social Fitness Service",
                 tests = listOf(
@@ -183,7 +176,6 @@ fun ServiceTestScreen(
                 )
             )
 
-            // Fitness Tracking Service Tests
             ServiceTestSection(
                 title = "Fitness Tracking Service",
                 tests = listOf(
@@ -212,7 +204,6 @@ fun ServiceTestScreen(
                 )
             )
 
-            // Location Tracking Service Tests
             ServiceTestSection(
                 title = "Location Tracking Service",
                 tests = listOf(
@@ -239,7 +230,6 @@ fun ServiceTestScreen(
                 )
             )
 
-            // Real-time data display
             if (realTimeData != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -267,7 +257,6 @@ fun ServiceTestScreen(
                 }
             }
 
-            // Results display
             if (testResults.isNotBlank()) {
                 Card(
                     modifier = Modifier.fillMaxWidth()

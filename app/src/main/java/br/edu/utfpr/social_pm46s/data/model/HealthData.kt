@@ -38,7 +38,7 @@ data class DistanceData(
 data class SleepData(
     val startTime: Instant,
     val endTime: Instant,
-    val duration: Duration, // Mudança: era 'durationMinutes'
+    val duration: Duration,
     val stages: List<SleepStageData> = emptyList()
 )
 
@@ -49,18 +49,18 @@ data class SleepStageData(
 )
 
 data class ExerciseData(
-    val sessionType: Int, // Mudança: era 'type'
+    val sessionType: Int,
     val title: String,
     val startTime: Instant,
     val endTime: Instant,
-    val duration: Duration, // Mudança: era 'durationMinutes'
+    val duration: Duration,
     val caloriesBurned: Double
 )
 
 data class AggregatedData(
     val totalSteps: Long,
     val totalDistanceKm: Double,
-    val totalActiveCalories: Double // Mudança: era 'totalCalories'
+    val totalActiveCalories: Double
 )
 
 data class ActiveExerciseSession(
