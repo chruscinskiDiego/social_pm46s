@@ -32,6 +32,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import br.edu.utfpr.social_pm46s.R
 import kotlinx.coroutines.CoroutineScope
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.rememberAsyncImagePainter
+import br.edu.utfpr.social_pm46s.firebase.FirebaseManager
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 
 object GroupsScreen : Screen {
     @Composable
@@ -108,7 +115,7 @@ private fun GroupsScreenContent(
         containerColor = MaterialTheme.colorScheme.primary,
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(painterResource(id = R.drawable.ic_launcher_foreground), contentDescription = "Criar Grupo")
+                Icon(Icons.Default.Add, contentDescription = "Criar Grupo")
             }
         }
     ) { innerPadding ->
@@ -269,8 +276,18 @@ private fun CreateGroupDialog(
     onDismiss: () -> Unit,
     onGroupCreated: (Group) -> Unit
 ) {
+    val context = LocalContext.current
     var nomeGrupo by remember { mutableStateOf("") }
     var tipoGrupo by remember { mutableStateOf("publico") }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        imageUri = uri
+    }
+    val scope = rememberCoroutineScope()
+    val firebaseManager = remember { FirebaseManager() }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.padding(16.dp)
@@ -288,29 +305,65 @@ private fun CreateGroupDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                // Tipo de grupo (público/privado)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Tipo:")
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(tipoGrupo)
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                // Seleção de imagem
+                Button(onClick = { launcher.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Selecionar Imagem")
+                }
+                imageUri?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Image(
+                        painter = rememberAsyncImagePainter(it),
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp)
+                    )
+                }
+                errorMessage?.let {
+                    Text(it, color = Color.Red, fontSize = 12.sp)
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = {
                         if (nomeGrupo.isNotBlank()) {
-                            onGroupCreated(
-                                Group(
-                                    nomeGrupo = nomeGrupo,
-                                    tipoGrupo = tipoGrupo
+                            isUploading = true
+                            errorMessage = null
+                            scope.launch {
+                                var imageUrl: String? = null
+                                val groupId = System.currentTimeMillis().toString()
+                                if (imageUri != null) {
+                                    imageUrl = firebaseManager.uploadGroupImage(imageUri!!, groupId)
+                                    if (imageUrl == null) {
+                                        errorMessage = "Erro ao fazer upload da imagem."
+                                        isUploading = false
+                                        return@launch
+                                    }
+                                }
+                                onGroupCreated(
+                                    Group(
+                                        id = groupId,
+                                        nomeGrupo = nomeGrupo,
+                                        tipoGrupo = tipoGrupo,
+                                        imagemUrl = imageUrl
+                                    )
                                 )
-                            )
+                                isUploading = false
+                            }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isUploading
                 ) {
-                    Text("Criar")
+                    if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    else Text("Criar")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), enabled = !isUploading) {
                     Text("Cancelar")
                 }
             }
