@@ -55,7 +55,6 @@ private fun RankingScreenContent(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedPeriod by remember { mutableStateOf("weekly") }
 
-    // Carrega dados do ranking usando o SocialFitnessService
     LaunchedEffect(selectedPeriod) {
         scope.launch {
             try {
@@ -84,12 +83,10 @@ private fun RankingScreenContent(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Título da tela
             HeaderSection()
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Filtro de período
             PeriodFilterSection(
                 selectedPeriod = selectedPeriod,
                 onPeriodChanged = { selectedPeriod = it }
@@ -97,7 +94,6 @@ private fun RankingScreenContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Card principal com ranking
             RankingCard(
                 isLoading = isLoading,
                 rankings = rankings,
@@ -107,7 +103,6 @@ private fun RankingScreenContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botão voltar
             BackButton(onClick = onBackClick)
         }
     }
@@ -269,10 +264,8 @@ private fun RankingContent(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        // Cabeçalho
         RankingHeader(totalUsers = rankings.size)
 
-        // Lista de rankings
         if (rankings.isEmpty()) {
             EmptyRankingContent()
         } else {
@@ -380,13 +373,11 @@ private fun RankingItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Posição e nome
             UserInfoSection(
                 position = position,
                 user = user
             )
 
-            // Estatísticas
             StatsSection(user = user)
         }
     }
@@ -457,7 +448,6 @@ private fun StatsSection(
     }
 }
 
-// Funções auxiliares
 private fun calculateUserScore(user: UserRanking): Int {
     return user.totalSteps +
             user.totalDistance.toInt() +

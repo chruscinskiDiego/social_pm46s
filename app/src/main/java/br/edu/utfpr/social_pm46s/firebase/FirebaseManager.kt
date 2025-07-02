@@ -22,7 +22,6 @@ import kotlinx.coroutines.tasks.await
  */
 class FirebaseManager {
 
-    // Instâncias do Firebase
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val realtimeDatabase = FirebaseDatabase.getInstance()
@@ -30,11 +29,8 @@ class FirebaseManager {
     // Google Sign-In
     private var googleSignInClient: GoogleSignInClient? = null
 
-    // ==================== GOOGLE SIGN-IN SETUP ====================
-
     /**
      * Configura o Google Sign-In
-     * Deve ser chamado na MainActivity ou Application
      */
     fun setupGoogleSignIn(context: Context, webClientId: String) {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -50,7 +46,6 @@ class FirebaseManager {
      */
     fun getGoogleSignInIntent(): Intent? = googleSignInClient?.signInIntent
 
-    // ==================== FIREBASE AUTHENTICATION (GOOGLE) ====================
 
     /**
      * Processa o resultado do Google Sign-In
@@ -122,8 +117,6 @@ class FirebaseManager {
             "photoUrl" to it.photoUrl?.toString()
         )
     }
-
-    // ==================== FIRESTORE ====================
 
     /**
      * Salvar documento no Firestore
@@ -197,8 +190,6 @@ class FirebaseManager {
         }
     }
 
-    // ==================== REALTIME DATABASE ====================
-
     /**
      * Salvar dados no Realtime Database
      */
@@ -253,7 +244,6 @@ class FirebaseManager {
         }
     }
 
-    // ==================== STORAGE ====================
     suspend fun uploadGroupImage(imageUri: Uri, groupId: String): String? {
         return try {
             val storageRef = FirebaseStorage.getInstance().reference

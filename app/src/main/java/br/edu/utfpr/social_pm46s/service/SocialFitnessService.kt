@@ -313,7 +313,6 @@ class SocialFitnessService(
 
     private suspend fun checkStreakAchievements(userId: String) {
         val weeklyStats = activityRepository.getWeeklyStats(userId)
-        // Implementar lógica de sequência quando necessário
     }
 
     private suspend fun checkCalorieAchievements(workout: WorkoutResult) {

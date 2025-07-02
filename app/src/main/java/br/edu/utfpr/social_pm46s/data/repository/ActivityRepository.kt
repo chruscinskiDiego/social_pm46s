@@ -27,7 +27,6 @@ class ActivityRepository {
     private val _weeklyStats = MutableStateFlow<WorkoutStats?>(null)
     val weeklyStats: StateFlow<WorkoutStats?> = _weeklyStats
 
-    // Métodos de WorkoutResult
     suspend fun saveWorkout(workout: WorkoutResult): Boolean {
         return try {
             val workoutId =
@@ -176,7 +175,6 @@ class ActivityRepository {
         }
     }
 
-    // Métodos de RegistroAtividade
     suspend fun saveAtividade(atividade: RegistroAtividade): Boolean {
         return try {
             val documentRef = if (atividade.id.isNotEmpty()) {

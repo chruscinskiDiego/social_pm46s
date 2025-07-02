@@ -38,7 +38,6 @@ object MonitoringScreen : Screen {
         val context = LocalContext.current.applicationContext
         val scope = rememberCoroutineScope()
 
-        // Criando as dependências manualmente, como no padrão da RankingScreen
         val healthConnectService = HealthConnectService(context)
         val fitnessTracker = FitnessTracker(context, healthConnectService)
         val activityRepository = ActivityRepository()
@@ -88,9 +87,7 @@ private fun MonitoringScreenContent(
     val permissionState = rememberMultiplePermissionsState(permissions = permissionsToRequest)
 
     val onStartClick: () -> Unit = {
-        // A verificação acontece ANTES de chamar a função
         if (permissionState.allPermissionsGranted) {
-            // Se todas as permissões foram concedidas, entre aqui.
             scope.launch {
                 val title = when (selectedWorkoutType) {
                     HealthConnectService.EXERCISE_TYPE_WALKING -> "Caminhada"
@@ -109,13 +106,10 @@ private fun MonitoringScreenContent(
                 }
             }
         } else {
-            // Se uma ou mais permissões estiverem faltando,
-            // lance a caixa de diálogo do sistema para pedi-las.
             permissionState.launchMultiplePermissionRequest()
         }
     }
 
-    // CORREÇÃO: A lógica foi movida para dentro da variável onStopClick
     val onStopClick: () -> Unit = {
         scope.launch {
             isSaving = true
@@ -163,7 +157,6 @@ private fun MonitoringScreenContent(
                 hasPermissions = permissionState.allPermissionsGranted,
                 onWorkoutTypeSelected = { selectedWorkoutType = it },
                 onStartClick = onStartClick,
-                // Agora o onStopClick está corretamente definido e sendo passado
                 onStopClick = onStopClick,
                 modifier = Modifier.weight(1f)
             )
@@ -190,7 +183,6 @@ private fun MonitoringCard(
     isSaving: Boolean,
     realTimeData: RealTimeWorkoutData?,
     selectedWorkoutType: Int,
-    // Novo parâmetro
     hasPermissions: Boolean,
     onWorkoutTypeSelected: (Int) -> Unit,
     onStartClick: () -> Unit,
@@ -206,7 +198,6 @@ private fun MonitoringCard(
         when {
             isSaving -> SavingContent()
             isTracking -> TrackingContent(realTimeData, onStopClick)
-            // Passe o novo estado para o PreStartContent
             else -> PreStartContent(selectedWorkoutType, hasPermissions, onWorkoutTypeSelected, onStartClick)
         }
     }
@@ -215,7 +206,6 @@ private fun MonitoringCard(
 @Composable
 private fun PreStartContent(
     selectedWorkoutType: Int,
-    // Novo parâmetro
     hasPermissions: Boolean,
     onWorkoutTypeSelected: (Int) -> Unit,
     onStartClick: () -> Unit
@@ -249,7 +239,6 @@ private fun PreStartContent(
             onClick = onStartClick,
             modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
-            // O texto do botão agora muda dinamicamente
             Text(
                 text = if (hasPermissions) "INICIAR" else "CONCEDER PERMISSÃO",
                 fontSize = 16.sp

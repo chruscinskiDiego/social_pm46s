@@ -14,10 +14,8 @@ class SocialApplication : Application() {
         super.onCreate()
         UserProfileManager.init(applicationContext)
 
-        // Inicializa o Firebase
         FirebaseApp.initializeApp(this)
         
-        // Log para debug
         android.util.Log.d("SocialApplication", "Firebase inicializado com sucesso!")
     }
 } 

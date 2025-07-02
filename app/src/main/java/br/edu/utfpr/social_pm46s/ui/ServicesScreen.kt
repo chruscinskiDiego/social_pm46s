@@ -41,7 +41,6 @@ object ServicesScreen : Screen {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
 
-        // Instanciando os repositórios necessários para a validação
         val authRepository = AuthRepository(context)
         val userRepository = UserRepository()
 

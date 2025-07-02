@@ -102,7 +102,6 @@ class FitnessTracker(
             getUserWeight()
         )
 
-        // Salva no Health Connect
         val saved = healthConnectService.finishExercise(calories, userNotes)
 
         return if (saved) {
@@ -156,12 +155,10 @@ class FitnessTracker(
     }
 
     private fun getUserWeight(): Double {
-        // Implementar busca do peso do usuário
         return 70.0
     }
 
     private fun getCurrentUserId(): String {
-        // Implementar busca do ID do usuário atual
         return "user_123"
     }
 }

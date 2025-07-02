@@ -56,19 +56,16 @@ class FitnessTrackingService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        // Inicializar dependências
         val healthConnectService = HealthConnectService(this)
         fitnessTracker = FitnessTracker(this, healthConnectService)
         workoutRepository = ActivityRepository()
         userRepo = UserRepository()
         authRepository = AuthRepository(this)
 
-        // Inicializar SocialFitnessService apenas se o usuário estiver logado
         initializeSocialFitnessService()
 
         createNotificationChannel()
 
-        // Observar dados em tempo real para atualizar notificação
         serviceScope.launch {
             fitnessTracker.realTimeData.collect { workoutData ->
                 workoutData?.let { updateNotification(it) }
@@ -111,7 +108,6 @@ class FitnessTrackingService : Service() {
                 val notification = createWorkoutNotification(title)
                 startForeground(NOTIFICATION_ID, notification)
 
-                // Chamar shareWorkoutStart com userId
                 currentUserId?.let { userId ->
                     socialFitnessService?.shareWorkoutStart(type, title, userId)
                 }
@@ -191,11 +187,9 @@ class FitnessTrackingService : Service() {
         val startTime = data.startTime
         val currentTime = Instant.now()
 
-        // Calcular duração desde o início
         val durationMillis = java.time.Duration.between(startTime, currentTime).toMillis()
         val duration = "${(durationMillis / 60000)}min"
 
-        // Usar dados do WorkoutStats
         val calories = "${stats.estimatedCalories.toInt()}kcal"
         val distance = stats.distance
         val steps = stats.steps

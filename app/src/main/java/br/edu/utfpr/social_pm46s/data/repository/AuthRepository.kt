@@ -20,7 +20,6 @@ class AuthRepository(private val context: Context) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
 
-    // Extrair webClientId do google-services.json
     private val webClientId = "1084557816281-8r3odquj2meclhrnpott6vj5mseuk9qc.apps.googleusercontent.com"
 
 
