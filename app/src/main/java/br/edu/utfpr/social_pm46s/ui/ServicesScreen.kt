@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
 import kotlinx.coroutines.launch
+import br.edu.utfpr.social_pm46s.data.UserProfileManager
 
 object ServicesScreen : Screen {
 
@@ -33,6 +34,8 @@ object ServicesScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val authRepository = AuthRepository(context)
+        val currentUser = authRepository.getCurrentUser()
+        val userId = currentUser?.uid
         val scope = rememberCoroutineScope()
 
         Column(
@@ -56,12 +59,24 @@ object ServicesScreen : Screen {
                 Text("Logout")
             }
 
+            Button(
+                onClick = { navigator.push(UserProfileScreen) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Editar Perfil")
+            }
 
             ServiceCard(
                 title = "Iniciar Monitoramento",
                 imageResId = R.drawable.monitoring,
-                // Ao clicar, "empurra" a nova tela para a pilha de navegação
-                onClick = { navigator.push(MonitoringScreen) }
+                onClick = {
+                    UserProfileManager.init(context)
+                    if (userId == null || !UserProfileManager.isProfileComplete(userId)) {
+                        navigator.push(UserProfileScreen)
+                    } else {
+                        navigator.push(MonitoringScreen)
+                    }
+                }
             )
 
             ServiceCard(
