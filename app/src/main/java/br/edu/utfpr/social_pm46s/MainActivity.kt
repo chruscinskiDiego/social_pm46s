@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
 import br.edu.utfpr.social_pm46s.ui.LoginScreen
+import br.edu.utfpr.social_pm46s.ui.ServiceTestScreen
 import br.edu.utfpr.social_pm46s.ui.theme.Social_pm46sTheme
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
             Social_pm46sTheme {
                 var isUserLoggedIn by remember { mutableStateOf(authRepository.isUserLoggedIn()) }
                 var currentUser by remember { mutableStateOf(authRepository.getCurrentUser()) }
+                var showServiceTests by remember { mutableStateOf(false) }
 
                 // Atualiza o estado quando há mudança na autenticação
                 LaunchedEffect(Unit) {
@@ -41,26 +43,36 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    if (!isUserLoggedIn) {
-                        LoginScreen(
-                            onLoginSuccess = {
-                                isUserLoggedIn = true
-                                currentUser = authRepository.getCurrentUser()
-                                Log.d("Login", "Login realizado: ${currentUser?.email}")
-                            }
-                        )
-                    } else {
-                        MainScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onSignOutClick = {
-                                handleSignOut()
-                                isUserLoggedIn = false
-                                currentUser = null
-                            },
-                            onFirestoreTestClick = { handleFirestoreTest() },
-                            onRealtimeTestClick = { handleRealtimeTest() },
-                            currentUser = currentUser
-                        )
+                    when {
+                        !isUserLoggedIn -> {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    isUserLoggedIn = true
+                                    currentUser = authRepository.getCurrentUser()
+                                    Log.d("Login", "Login realizado: ${currentUser?.email}")
+                                }
+                            )
+                        }
+
+                        showServiceTests -> {
+                            ServiceTestScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onBackClick = { showServiceTests = false }
+                            )
+                        }
+
+                        else -> {
+                            MainScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onSignOutClick = {
+                                    handleSignOut()
+                                    isUserLoggedIn = false
+                                    currentUser = null
+                                },
+                                onServiceTestClick = { showServiceTests = true },
+                                currentUser = currentUser
+                            )
+                        }
                     }
                 }
             }
@@ -73,28 +85,13 @@ class MainActivity : ComponentActivity() {
             Log.d("Auth", "Logout realizado")
         }
     }
-
-    private fun handleFirestoreTest() {
-        lifecycleScope.launch {
-            // Manter a implementação existente do Firestore se necessário
-            Log.d("Firestore", "Teste do Firestore")
-        }
-    }
-
-    private fun handleRealtimeTest() {
-        lifecycleScope.launch {
-            // Manter a implementação existente do Realtime Database se necessário
-            Log.d("RealtimeDB", "Teste do Realtime Database")
-        }
-    }
 }
 
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
     onSignOutClick: () -> Unit,
-    onFirestoreTestClick: () -> Unit,
-    onRealtimeTestClick: () -> Unit,
+    onServiceTestClick: () -> Unit,
     currentUser: com.google.firebase.auth.FirebaseUser?
 ) {
     Column(
@@ -122,17 +119,10 @@ fun MainScreen(
         HorizontalDivider()
 
         Button(
-            onClick = onFirestoreTestClick,
+            onClick = onServiceTestClick,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Testar Firestore")
-        }
-
-        Button(
-            onClick = onRealtimeTestClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Testar Realtime DB")
+            Text("Testar Services")
         }
     }
 }
