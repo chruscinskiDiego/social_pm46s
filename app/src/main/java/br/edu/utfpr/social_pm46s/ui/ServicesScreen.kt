@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.edu.utfpr.social_pm46s.R
+import br.edu.utfpr.social_pm46s.data.UserProfileManager
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
 import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import cafe.adriel.voyager.core.screen.Screen
@@ -55,6 +56,7 @@ object ServicesScreen : Screen {
                     )
                 }
             },
+            onEditProfileClick = { navigator.push(UserProfileScreen) },
             onMonitoringClick = {
                 scope.launch {
                     val userId = authRepository.getCurrentUser()?.uid
@@ -79,6 +81,7 @@ object ServicesScreen : Screen {
 private fun ServicesScreenContent(
     scope: CoroutineScope,
     onLogoutClick: () -> Unit,
+    onEditProfileClick: () -> Unit,
     onMonitoringClick: () -> Unit,
     onGroupsClick: () -> Unit,
     onRankingClick: () -> Unit,
@@ -107,7 +110,7 @@ private fun ServicesScreenContent(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-
+            EditProfileSection(onEditProfileClick = onEditProfileClick)
             LogoutSection(onLogoutClick = onLogoutClick)
         }
     }
@@ -153,6 +156,24 @@ private fun ServicesSection(
             title = "Ranking Geral",
             imageResId = R.drawable.ranking,
             onClick = onRankingClick
+        )
+    }
+}
+
+@Composable
+private fun EditProfileSection(
+    onEditProfileClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onEditProfileClick,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "Editar Perfil",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(vertical = 8.dp)
         )
     }
 }

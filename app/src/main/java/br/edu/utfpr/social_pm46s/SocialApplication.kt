@@ -1,6 +1,7 @@
 package br.edu.utfpr.social_pm46s
 
 import android.app.Application
+import br.edu.utfpr.social_pm46s.data.UserProfileManager
 import com.google.firebase.FirebaseApp
 
 /**
@@ -11,7 +12,8 @@ class SocialApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
-        
+        UserProfileManager.init(applicationContext)
+
         // Inicializa o Firebase
         FirebaseApp.initializeApp(this)
         

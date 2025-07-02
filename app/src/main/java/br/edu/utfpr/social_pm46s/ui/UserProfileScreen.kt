@@ -27,10 +27,7 @@ object UserProfileScreen : Screen {
         val context = LocalContext.current
         val authRepository = remember { AuthRepository(context) }
         val userId = authRepository.getCurrentUser()?.uid
-        LaunchedEffect(userId) { UserProfileManager.init(context) }
-
         val savedData = remember(userId) {
-            UserProfileManager.init(context)
             userId?.let { UserProfileManager.getUserData(it) } ?: UserData(0, "", 0f, 0f)
         }
         var age by remember { mutableStateOf(savedData.age.takeIf { it > 0 }?.toString() ?: "") }
