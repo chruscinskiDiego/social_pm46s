@@ -213,50 +213,50 @@ private fun ServiceCard(
 }
 
 // Telas de destino (placeholders)
-object MonitoringScreen : Screen {
-    private fun readResolve(): Any = MonitoringScreen
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .systemBarsPadding(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "Tela de Monitoramento",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Button(
-                        onClick = { navigator.pop() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text("Voltar")
-                    }
-                }
-            }
-        }
-    }
-}
+//object MonitoringScreens : Screen {
+//    private fun readResolve(): Any = MonitoringScreen
+//
+//    @OptIn(ExperimentalMaterial3Api::class)
+//    @Composable
+//    override fun Content() {
+//        val navigator = LocalNavigator.currentOrThrow
+//
+//        Scaffold(
+//            modifier = Modifier.fillMaxSize(),
+//            containerColor = MaterialTheme.colorScheme.background
+//        ) { innerPadding ->
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .padding(innerPadding)
+//                    .systemBarsPadding(),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Column(
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                    verticalArrangement = Arrangement.spacedBy(16.dp)
+//                ) {
+//                    Text(
+//                        text = "Tela de Monitoramento",
+//                        fontSize = 24.sp,
+//                        fontWeight = FontWeight.Bold,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//
+//                    Button(
+//                        onClick = { navigator.pop() },
+//                        colors = ButtonDefaults.buttonColors(
+//                            containerColor = MaterialTheme.colorScheme.primary,
+//                            contentColor = MaterialTheme.colorScheme.onPrimary
+//                        )
+//                    ) {
+//                        Text("Voltar")
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
 
 object GroupsScreen : Screen {
     private fun readResolve(): Any = GroupsScreen
