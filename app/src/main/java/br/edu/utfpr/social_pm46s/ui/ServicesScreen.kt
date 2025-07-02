@@ -73,7 +73,7 @@ object ServicesScreen : Screen {
             ServiceCard(
                 title = "Ranking Geral",
                 imageResId = R.drawable.ranking,
-                onClick = { navigator.push(RankingScreen) }
+                onClick = { navigator.push(RankingScreen)}
             )
         }
     }
@@ -110,7 +110,7 @@ object GroupsScreen : Screen {
     }
 }
 
-object RankingScreen : Screen {
+/*object RankingScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -123,7 +123,7 @@ object RankingScreen : Screen {
             }
         }
     }
-}
+}*/
 
 
 // O Composable do Card não precisa ser uma Screen, ele é apenas um componente de UI.
@@ -154,7 +154,7 @@ fun ServiceCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFFFA726))
+                    .background(Color(0xFF4A148C))
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
