@@ -89,6 +89,13 @@ plugins {
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.kotlinx.coroutines.play.services)
 
+        // Voyager - Navigation for Compose
+        implementation(libs.voyager.navigator)
+        implementation(libs.voyager.screenmodel)
+        implementation(libs.voyager.bottom.sheet.navigator)
+        implementation(libs.voyager.tab.navigator)
+        implementation(libs.voyager.transitions)
+
         // Testing dependencies
         testImplementation(libs.junit)
         androidTestImplementation(libs.androidx.junit)
