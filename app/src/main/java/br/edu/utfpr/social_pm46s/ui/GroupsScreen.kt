@@ -39,6 +39,7 @@ import coil.compose.rememberAsyncImagePainter
 import br.edu.utfpr.social_pm46s.firebase.FirebaseManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
 
 object GroupsScreen : Screen {
     @Composable
@@ -78,13 +79,21 @@ private fun GroupsScreenContent(
     var userGroups by remember { mutableStateOf<List<Group>>(emptyList()) }
     var allGroups by remember { mutableStateOf<List<Group>>(emptyList()) }
     var groupMembers by remember { mutableStateOf<Map<String, List<User>>>(emptyMap()) }
+    var groupScores by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var selectedGroup by remember { mutableStateOf<Group?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("Meus Grupos", "Todos os Grupos")
+    val activityRepository = remember { br.edu.utfpr.social_pm46s.data.repository.ActivityRepository() }
 
-    // Carrega grupos do usuário e todos os grupos
-    LaunchedEffect(userId) {
+    suspend fun calculateUserScore(userId: String): Int {
+        val stats = activityRepository.getWeeklyStats(userId)
+        return (stats?.steps ?: 0) + (stats?.distance?.toInt() ?: 0) + (stats?.estimatedCalories?.toInt() ?: 0)
+    }
+
+    fun loadGroupsData() {
         scope.launch {
             try {
                 isLoading = true
@@ -92,22 +101,35 @@ private fun GroupsScreenContent(
                 val usuarioGrupos = usuarioGrupoRepository.getUserGroups(userId)
                 val userGroupIds = usuarioGrupos.map { it.idGrupo }
                 val all = groupRepository.getAllGroups()
-                userGroups = all.filter { it.id in userGroupIds }
-                allGroups = all
-                // Carrega membros de cada grupo
                 val membersMap = mutableMapOf<String, List<User>>()
+                val scoresMap = mutableMapOf<String, Int>()
                 for (group in all) {
                     val usuariosGrupo = usuarioGrupoRepository.getGroupMembers(group.id)
                     val users = usuariosGrupo.mapNotNull { userRepository.getUser(it.idUsuario) }
                     membersMap[group.id] = users
+                    // Score do grupo: soma dos scores dos membros
+                    var groupScore = 0
+                    for (user in users) {
+                        groupScore += calculateUserScore(user.id)
+                    }
+                    scoresMap[group.id] = groupScore
                 }
                 groupMembers = membersMap
+                groupScores = scoresMap
+                // Ordenar grupos pelo score
+                userGroups = all.filter { it.id in userGroupIds }
+                    .sortedByDescending { scoresMap[it.id] ?: 0 }
+                allGroups = all.sortedByDescending { scoresMap[it.id] ?: 0 }
                 isLoading = false
             } catch (e: Exception) {
                 isLoading = false
                 errorMessage = "Erro ao carregar grupos: ${e.message}"
             }
         }
+    }
+
+    LaunchedEffect(userId) {
+        loadGroupsData()
     }
 
     Scaffold(
@@ -135,67 +157,119 @@ private fun GroupsScreenContent(
                 color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.height(16.dp))
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else if (errorMessage != null) {
-                Text(errorMessage!!, color = Color.Red)
-            } else {
-                // Seção 1: Grupos do usuário
-                Text(
-                    text = "Seus Grupos",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 180.dp)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(userGroups) { group ->
-                        GroupListItem(
-                            group = group,
-                            members = groupMembers[group.id] ?: emptyList(),
-                            isUserInGroup = true,
-                            onClick = { selectedGroup = group }
-                        )
-                    }
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, maxLines = 1) }
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                // Seção 2: Todos os grupos
-                Text(
-                    text = "Todos os Grupos",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.fillMaxWidth()
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(allGroups) { group ->
-                        val isUserInGroup = userGroups.any { it.id == group.id }
-                        GroupListItem(
-                            group = group,
-                            members = groupMembers[group.id] ?: emptyList(),
-                            isUserInGroup = isUserInGroup,
-                            onClick = { selectedGroup = group }
-                        )
+            ) {
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    errorMessage != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(errorMessage!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                        }
+                    }
+                    else -> {
+                        if (selectedTab == 0) {
+                            // Meus Grupos
+                            if (userGroups.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Você ainda não participa de nenhum grupo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Entre ou crie um grupo!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(userGroups) { group ->
+                                        GroupListItem(
+                                            group = group,
+                                            members = groupMembers[group.id] ?: emptyList(),
+                                            isUserInGroup = true,
+                                            groupScore = groupScores[group.id] ?: 0,
+                                            onClick = { selectedGroup = group }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Todos os Grupos
+                            if (allGroups.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Nenhum grupo encontrado.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(allGroups) { group ->
+                                        val isUserInGroup = userGroups.any { it.id == group.id }
+                                        GroupListItem(
+                                            group = group,
+                                            members = groupMembers[group.id] ?: emptyList(),
+                                            isUserInGroup = isUserInGroup,
+                                            groupScore = groupScores[group.id] ?: 0,
+                                            onClick = { selectedGroup = group }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onBackClick, colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onBackClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text("Voltar")
             }
         }
@@ -205,12 +279,17 @@ private fun GroupsScreenContent(
                 onDismiss = { showCreateDialog = false },
                 onGroupCreated = { newGroup ->
                     scope.launch {
+                        isLoading = true
                         val success = groupRepository.saveGroup(newGroup)
                         if (success) {
+                            val usuarioGrupo = UsuarioGrupo(idUsuario = userId, idGrupo = newGroup.id)
+                            usuarioGrupoRepository.addUserToGroup(usuarioGrupo)
                             showCreateDialog = false
+                            loadGroupsData()
                         } else {
                             errorMessage = "Erro ao criar grupo"
                         }
+                        isLoading = false
                     }
                 }
             )
@@ -225,9 +304,12 @@ private fun GroupsScreenContent(
                     scope.launch {
                         val alreadyInGroup = userGroups.any { it.id == group.id }
                         if (!alreadyInGroup) {
+                            isLoading = true
                             val usuarioGrupo = UsuarioGrupo(idUsuario = userId, idGrupo = group.id)
                             usuarioGrupoRepository.addUserToGroup(usuarioGrupo)
                             selectedGroup = null
+                            loadGroupsData()
+                            isLoading = false
                         }
                     }
                 },
@@ -242,15 +324,20 @@ private fun GroupListItem(
     group: Group,
     members: List<User>,
     isUserInGroup: Boolean,
+    groupScore: Int = 0,
     onClick: () -> Unit
 ) {
+    val backgroundColor = if (isUserInGroup) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface
+    val textColor = if (isUserInGroup) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface
+    val scoreColor = if (isUserInGroup) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.primary
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isUserInGroup) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface
+            containerColor = backgroundColor
         )
     ) {
         Row(
@@ -264,11 +351,26 @@ private fun GroupListItem(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(group.nomeGrupo, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Integrantes: ${members.size}", fontSize = 12.sp)
+                Text(group.nomeGrupo, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = textColor)
+                Text("Integrantes: ${members.size}", fontSize = 12.sp, color = textColor)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Pontuação",
+                        tint = scoreColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${groupScore} pts",
+                        fontSize = 14.sp,
+                        color = scoreColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             if (isUserInGroup) {
-                Text("Você participa", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                Text("Você participa", color = scoreColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -382,6 +484,23 @@ private fun GroupDetailDialog(
     onJoinGroup: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val activityRepository = remember { br.edu.utfpr.social_pm46s.data.repository.ActivityRepository() }
+    var memberScores by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    val scope = rememberCoroutineScope()
+
+    // Calcula os scores dos membros ao abrir o dialog
+    LaunchedEffect(members) {
+        scope.launch {
+            val scores = mutableMapOf<String, Int>()
+            for (user in members) {
+                val stats = activityRepository.getWeeklyStats(user.id)
+                val score = (stats?.steps ?: 0) + (stats?.distance?.toInt() ?: 0) + (stats?.estimatedCalories?.toInt() ?: 0)
+                scores[user.id] = score
+            }
+            memberScores = scores
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.padding(16.dp)
@@ -404,12 +523,27 @@ private fun GroupDetailDialog(
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 120.dp)
                 ) {
-                    items(members) { user ->
+                    val sortedMembers = members.sortedByDescending { memberScores[it.id] ?: 0 }
+                    items(sortedMembers) { user ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Text(user.displayName.ifBlank { user.nomeUsuario }, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Pontuação",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "${memberScores[user.id] ?: 0} pts",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
