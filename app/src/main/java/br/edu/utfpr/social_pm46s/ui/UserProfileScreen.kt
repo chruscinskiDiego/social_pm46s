@@ -27,6 +27,7 @@ object UserProfileScreen : Screen {
         val context = LocalContext.current
         val authRepository = remember { AuthRepository(context) }
         val userId = authRepository.getCurrentUser()?.uid
+
         val savedData = remember(userId) {
             userId?.let { UserProfileManager.getUserData(it) } ?: UserData(0, "", 0f, 0f)
         }
@@ -38,25 +39,34 @@ object UserProfileScreen : Screen {
         var errorMsg by remember { mutableStateOf("") }
         val genderOptions = listOf("Masculino", "Feminino", "Outro")
 
+        val textFieldColors = TextFieldDefaults.colors(
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            cursorColor = MaterialTheme.colorScheme.primary
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF4A148C))
-                .padding(16.dp),
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(16.dp)
+                .systemBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "👤 PERFIL DO USUÁRIO",
                 fontSize = 24.sp,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -65,7 +75,7 @@ object UserProfileScreen : Screen {
                     Text(
                         text = "Seus Dados",
                         fontSize = 18.sp,
-                        color = Color(0xFF4A148C)
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
@@ -74,7 +84,8 @@ object UserProfileScreen : Screen {
                         label = { Text("Idade") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     ExposedDropdownMenuBox(
@@ -87,7 +98,8 @@ object UserProfileScreen : Screen {
                             readOnly = true,
                             label = { Text("Sexo") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showGenderMenu) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            colors = textFieldColors
                         )
                         ExposedDropdownMenu(
                             expanded = showGenderMenu,
@@ -111,7 +123,8 @@ object UserProfileScreen : Screen {
                         label = { Text("Peso (kg)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -120,11 +133,12 @@ object UserProfileScreen : Screen {
                         label = { Text("Altura (cm)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     if (errorMsg.isNotEmpty()) {
-                        Text(errorMsg, color = Color.Red, fontSize = 14.sp)
+                        Text(errorMsg, color = MaterialTheme.colorScheme.error, fontSize = 14.sp) // ALTERAÇÃO AQUI
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     Button(
@@ -144,11 +158,14 @@ object UserProfileScreen : Screen {
                                 errorMsg = "Usuário não identificado. Faça login novamente."
                             } else {
                                 UserProfileManager.saveUserData(userId, ageInt, gender, weightFloat, heightFloat)
-                                navigator.replace(MonitoringScreen)
+                                navigator.pop()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A148C), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
                         Text("Salvar")
                     }
@@ -159,11 +176,11 @@ object UserProfileScreen : Screen {
                 onClick = { navigator.pop() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF4A148C)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text("Menu Principal", modifier = Modifier.padding(vertical = 8.dp))
+                Text("Voltar", modifier = Modifier.padding(vertical = 8.dp))
             }
         }
     }
