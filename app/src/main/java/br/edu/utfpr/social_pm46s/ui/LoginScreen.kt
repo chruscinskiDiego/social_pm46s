@@ -66,20 +66,18 @@ private fun LoginScreenContent(
                         val user = authRepository.signInWithGoogleCredential(result.credential)
 
                         if (user != null) {
-                            // --- AJUSTE PRINCIPAL AQUI ---
-                            // 3. APÓS O LOGIN, SALVAMOS O USUÁRIO NO FIRESTORE
-                            userRepository.saveOrUpdateUserFromGoogle(
-                                userId = user.uid,
-                                email = user.email ?: "",
-                                displayName = user.displayName ?: "",
-                                photoUrl = user.photoUrl?.toString() ?: ""
-                            )
-                            // --- FIM DO AJUSTE ---
-
-                            // 4. Somente após salvar, consideramos o processo um sucesso
-                            onLoginSuccess()
-                        } else {
-                            showToast(context, "Login failed")
+                            try {
+                                // Aguarda salvar no Firebase antes de navegar
+                                userRepository.saveOrUpdateUserFromGoogle(
+                                    userId = user.uid,
+                                    email = user.email ?: "",
+                                    displayName = user.displayName ?: "",
+                                    photoUrl = user.photoUrl?.toString() ?: ""
+                                )
+                                onLoginSuccess()
+                            } catch (e: Exception) {
+                                showToast(context, "Erro ao salvar usuário: ${e.message}")
+                            }
                         }
                     } catch (e: GetCredentialException) {
                         if (e.type != "androidx.credentials.exceptions.NoCredentialException") {
