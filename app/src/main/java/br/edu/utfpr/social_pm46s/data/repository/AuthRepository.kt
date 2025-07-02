@@ -21,37 +21,8 @@ class AuthRepository(private val context: Context) {
     private val credentialManager: CredentialManager = CredentialManager.create(context)
 
     // Extrair webClientId do google-services.json
-    private val webClientId: String by lazy {
-        getWebClientIdFromGoogleServices()
-    }
+    private val webClientId = "1084557816281-8r3odquj2meclhrnpott6vj5mseuk9qc.apps.googleusercontent.com"
 
-    private fun getWebClientIdFromGoogleServices(): String {
-        try {
-            val inputStream = context.assets.open("google-services.json")
-            val jsonString = inputStream.bufferedReader().use { it.readText() }
-            val jsonObject = JSONObject(jsonString)
-
-            val clientArray = jsonObject.getJSONArray("client")
-            val firstClient = clientArray.getJSONObject(0)
-            val oauthArray = firstClient.getJSONArray("oauth_client")
-
-            // Procurar pelo client_type 3 (web client)
-            for (i in 0 until oauthArray.length()) {
-                val oauth = oauthArray.getJSONObject(i)
-                if (oauth.getInt("client_type") == 3) {
-                    return oauth.getString("client_id")
-                }
-            }
-
-            // Se não encontrar o client_type 3, lançar exceção
-            throw Exception("Web client ID not found in google-services.json")
-        } catch (e: Exception) {
-            throw RuntimeException(
-                "Failed to load web client ID from google-services.json: ${e.message}",
-                e
-            )
-        }
-    }
 
     fun getCurrentUser(): FirebaseUser? = auth.currentUser
 
