@@ -192,7 +192,10 @@ private fun GroupsScreenContent(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onBackClick, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onBackClick, colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ), modifier = Modifier.fillMaxWidth()) {
                 Text("Voltar")
             }
         }
