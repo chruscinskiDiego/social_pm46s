@@ -1,6 +1,8 @@
 package br.edu.utfpr.social_pm46s.tracker
 
+import android.Manifest
 import android.content.Context
+import androidx.annotation.RequiresPermission
 import br.edu.utfpr.social_pm46s.data.model.workout.RealTimeWorkoutData
 import br.edu.utfpr.social_pm46s.data.model.workout.WorkoutResult
 import br.edu.utfpr.social_pm46s.data.model.workout.WorkoutStats
@@ -62,6 +64,7 @@ class FitnessTracker(
         } else null
     }.stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Lazily, null)
 
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     suspend fun startWorkout(type: Int, title: String): Boolean {
         if (_isTracking.value) return false
 
