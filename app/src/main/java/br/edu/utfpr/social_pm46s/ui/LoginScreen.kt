@@ -13,8 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
 import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import cafe.adriel.voyager.core.screen.Screen
@@ -38,9 +38,7 @@ object LoginScreen : Screen {
             authRepository = authRepository,
             userRepository = userRepository,
             scope = scope,
-            onLoginSuccess = {
-                navigator.replaceAll(ServicesScreen)
-            }
+            onLoginSuccess = { navigator.replace(MainScreen) }
         )
     }
 }
@@ -55,40 +53,50 @@ private fun LoginScreenContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val credentialManager = CredentialManager.create(context)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.primary
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(24.dp)
                 .systemBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
-            // Seção de boas-vindas
-            WelcomeSection()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Seção de boas-vindas
+                    WelcomeSection()
 
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Botão de login
-            LoginButton(
-                onClick = {
-                    scope.launch {
-                        handleGoogleSignIn(
-                            context = context,
-                            authRepository = authRepository,
-                            userRepository = userRepository,
-                            credentialManager = credentialManager,
-                            onSuccess = onLoginSuccess
-                        )
-                    }
+                    // Botão de login
+                    LoginButton(
+                        onClick = {
+                            scope.launch {
+                                handleGoogleSignIn(
+                                    context = context,
+                                    authRepository = authRepository,
+                                    userRepository = userRepository,
+                                    onSuccess = onLoginSuccess
+                                )
+                            }
+                        }
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -99,21 +107,19 @@ private fun WelcomeSection(
 ) {
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "Bem-vindo!",
-            fontSize = 32.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 16.dp)
+            color = MaterialTheme.colorScheme.primary
         )
-
         Text(
-            text = "Faça login para continuar",
+            text = "Faça login para acessar sua conta",
             fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Medium
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -125,45 +131,33 @@ private fun LoginButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth(0.8f)
-            .height(56.dp),
+        modifier = modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        ),
-        elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 8.dp,
-            pressedElevation = 12.dp
+            containerColor = MaterialTheme.colorScheme.primary
         )
     ) {
         Text(
             text = "Entrar com Google",
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(vertical = 8.dp)
         )
     }
 }
 
-// Resto do código permanece igual...
 private suspend fun handleGoogleSignIn(
     context: Context,
     authRepository: AuthRepository,
     userRepository: UserRepository,
-    credentialManager: CredentialManager,
     onSuccess: () -> Unit
 ) {
     try {
-        val googleIdOption = authRepository.createGetGoogleIdOption()
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
-
-        val result = credentialManager.getCredential(context, request)
-        val user = authRepository.signInWithGoogleCredential(result.credential)
+        // Primeira tentativa: contas autorizadas
+        val user = authRepository.signInWithGoogle()
 
         if (user != null) {
             try {
+                // Usar o método específico do UserRepository para dados do Google
                 userRepository.saveOrUpdateUserFromGoogle(
                     userId = user.uid,
                     email = user.email ?: "",
@@ -174,17 +168,79 @@ private suspend fun handleGoogleSignIn(
                 showToast(context, "Login realizado com sucesso!")
                 onSuccess()
             } catch (e: Exception) {
-                showToast(context, "Erro ao salvar usuário: ${e.message}")
+                showToast(context, "Erro ao salvar dados: ${e.message}")
             }
         } else {
-            showToast(context, "Falha na autenticação")
+            showToast(context, "Falha no login")
         }
+
+    } catch (e: NoCredentialException) {
+        // Se não há credenciais, tenta com todas as contas disponíveis
+        handleFallbackGoogleSignIn(
+            context = context,
+            authRepository = authRepository,
+            userRepository = userRepository,
+            onSuccess = onSuccess
+        )
     } catch (e: GetCredentialException) {
-        if (e.type != "androidx.credentials.exceptions.NoCredentialException") {
-            showToast(context, "Falha no login: ${e.message}")
+        when (e.type) {
+            "android.credentials.GetCredentialException.TYPE_USER_CANCELED" -> {
+                showToast(context, "Login cancelado pelo usuário")
+            }
+
+            "android.credentials.GetCredentialException.TYPE_NO_CREDENTIAL" -> {
+                // Fallback para forçar o prompt
+                handleFallbackGoogleSignIn(
+                    context = context,
+                    authRepository = authRepository,
+                    userRepository = userRepository,
+                    onSuccess = onSuccess
+                )
+            }
+
+            else -> {
+                showToast(context, "Erro de credencial: ${e.message}")
+            }
         }
     } catch (e: Exception) {
-        showToast(context, "Erro: ${e.message}")
+        showToast(context, "Erro inesperado: ${e.message}")
+    }
+}
+
+private suspend fun handleFallbackGoogleSignIn(
+    context: Context,
+    authRepository: AuthRepository,
+    userRepository: UserRepository,
+    onSuccess: () -> Unit
+) {
+    try {
+        // Força o prompt de login mesmo sem contas
+        val user = authRepository.signInWithGoogleFallback()
+
+        if (user != null) {
+            try {
+                // Usar o método específico do UserRepository para dados do Google
+                userRepository.saveOrUpdateUserFromGoogle(
+                    userId = user.uid,
+                    email = user.email ?: "",
+                    displayName = user.displayName ?: "",
+                    photoUrl = user.photoUrl?.toString() ?: ""
+                )
+
+                showToast(context, "Login realizado com sucesso!")
+                onSuccess()
+            } catch (e: Exception) {
+                showToast(context, "Erro ao salvar dados: ${e.message}")
+            }
+        } else {
+            showToast(
+                context,
+                "Nenhuma conta Google disponível. Adicione uma conta nas configurações do dispositivo."
+            )
+        }
+
+    } catch (e: Exception) {
+        showToast(context, "Erro no login alternativo: ${e.message}")
     }
 }
 

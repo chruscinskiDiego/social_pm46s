@@ -92,6 +92,30 @@ class AuthRepository(private val context: Context) {
         return null
     }
 
+    suspend fun signInWithGoogleFallback(): FirebaseUser? {
+        return try {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false)
+                .setAutoSelectEnabled(false)
+                .setServerClientId(webClientId)
+                .build()
+
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            val result = credentialManager.getCredential(
+                request = request,
+                context = context,
+            )
+
+            handleSignInResult(result)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
     suspend fun signInWithEmailAndPassword(email: String, password: String): FirebaseUser? {
         return try {
             auth.signInWithEmailAndPassword(email, password).await().user
