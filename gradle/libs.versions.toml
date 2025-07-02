@@ -22,8 +22,12 @@ voyagerNavigator = "1.0.1"
 voyagerScreenmodel = "1.0.1"
 voyagerTabNavigator = "1.0.1"
 voyagerTransitions = "1.0.1"
+androidxComposeMaterialIcons = "1.6.7"
+
 
 [libraries]
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "androidxComposeMaterialIcons" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "androidxComposeMaterialIcons" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

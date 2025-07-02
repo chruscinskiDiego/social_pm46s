@@ -95,20 +95,20 @@ object MonitoringScreen : Screen {
     }
 }
 
-object GroupsScreen : Screen {
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Tela de Grupos", fontSize = 24.sp)
-                Button(onClick = { navigator.pop() }) {
-                    Text("Voltar")
-                }
-            }
-        }
-    }
-}
+//object GroupsScreen : Screen {
+//    @Composable
+//    override fun Content() {
+//        val navigator = LocalNavigator.currentOrThrow
+//        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                Text("Tela de Grupos", fontSize = 24.sp)
+//                Button(onClick = { navigator.pop() }) {
+//                    Text("Voltar")
+//                }
+//            }
+//        }
+//    }
+//}
 
 /*object RankingScreen : Screen {
     @Composable
