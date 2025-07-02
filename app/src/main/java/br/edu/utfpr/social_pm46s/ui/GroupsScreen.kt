@@ -82,9 +82,10 @@ private fun GroupsScreenContent(
     var showCreateDialog by remember { mutableStateOf(false) }
     var selectedGroup by remember { mutableStateOf<Group?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("Meus Grupos", "Todos os Grupos")
 
-    // Carrega grupos do usuário e todos os grupos
-    LaunchedEffect(userId) {
+    fun loadGroupsData() {
         scope.launch {
             try {
                 isLoading = true
@@ -94,7 +95,6 @@ private fun GroupsScreenContent(
                 val all = groupRepository.getAllGroups()
                 userGroups = all.filter { it.id in userGroupIds }
                 allGroups = all
-                // Carrega membros de cada grupo
                 val membersMap = mutableMapOf<String, List<User>>()
                 for (group in all) {
                     val usuariosGrupo = usuarioGrupoRepository.getGroupMembers(group.id)
@@ -108,6 +108,10 @@ private fun GroupsScreenContent(
                 errorMessage = "Erro ao carregar grupos: ${e.message}"
             }
         }
+    }
+
+    LaunchedEffect(userId) {
+        loadGroupsData()
     }
 
     Scaffold(
@@ -135,67 +139,117 @@ private fun GroupsScreenContent(
                 color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.height(16.dp))
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else if (errorMessage != null) {
-                Text(errorMessage!!, color = Color.Red)
-            } else {
-                // Seção 1: Grupos do usuário
-                Text(
-                    text = "Seus Grupos",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 180.dp)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(userGroups) { group ->
-                        GroupListItem(
-                            group = group,
-                            members = groupMembers[group.id] ?: emptyList(),
-                            isUserInGroup = true,
-                            onClick = { selectedGroup = group }
-                        )
-                    }
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, maxLines = 1) }
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                // Seção 2: Todos os grupos
-                Text(
-                    text = "Todos os Grupos",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.fillMaxWidth()
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(allGroups) { group ->
-                        val isUserInGroup = userGroups.any { it.id == group.id }
-                        GroupListItem(
-                            group = group,
-                            members = groupMembers[group.id] ?: emptyList(),
-                            isUserInGroup = isUserInGroup,
-                            onClick = { selectedGroup = group }
-                        )
+            ) {
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    errorMessage != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(errorMessage!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                        }
+                    }
+                    else -> {
+                        if (selectedTab == 0) {
+                            // Meus Grupos
+                            if (userGroups.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Você ainda não participa de nenhum grupo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Entre ou crie um grupo!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(userGroups) { group ->
+                                        GroupListItem(
+                                            group = group,
+                                            members = groupMembers[group.id] ?: emptyList(),
+                                            isUserInGroup = true,
+                                            onClick = { selectedGroup = group }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Todos os Grupos
+                            if (allGroups.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Nenhum grupo encontrado.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(allGroups) { group ->
+                                        val isUserInGroup = userGroups.any { it.id == group.id }
+                                        GroupListItem(
+                                            group = group,
+                                            members = groupMembers[group.id] ?: emptyList(),
+                                            isUserInGroup = isUserInGroup,
+                                            onClick = { selectedGroup = group }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onBackClick, colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onBackClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text("Voltar")
             }
         }
@@ -205,12 +259,17 @@ private fun GroupsScreenContent(
                 onDismiss = { showCreateDialog = false },
                 onGroupCreated = { newGroup ->
                     scope.launch {
+                        isLoading = true
                         val success = groupRepository.saveGroup(newGroup)
                         if (success) {
+                            val usuarioGrupo = UsuarioGrupo(idUsuario = userId, idGrupo = newGroup.id)
+                            usuarioGrupoRepository.addUserToGroup(usuarioGrupo)
                             showCreateDialog = false
+                            loadGroupsData()
                         } else {
                             errorMessage = "Erro ao criar grupo"
                         }
+                        isLoading = false
                     }
                 }
             )
@@ -225,9 +284,12 @@ private fun GroupsScreenContent(
                     scope.launch {
                         val alreadyInGroup = userGroups.any { it.id == group.id }
                         if (!alreadyInGroup) {
+                            isLoading = true
                             val usuarioGrupo = UsuarioGrupo(idUsuario = userId, idGrupo = group.id)
                             usuarioGrupoRepository.addUserToGroup(usuarioGrupo)
                             selectedGroup = null
+                            loadGroupsData()
+                            isLoading = false
                         }
                     }
                 },
