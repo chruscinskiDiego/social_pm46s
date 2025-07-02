@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.edu.utfpr.social_pm46s.R
 import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
+import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -35,11 +36,13 @@ object ServicesScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val authRepository = AuthRepository(context)
         val scope = rememberCoroutineScope()
 
+        // Instanciando os repositórios necessários para a validação
+        val authRepository = AuthRepository(context)
+        val userRepository = UserRepository()
+
         ServicesScreenContent(
-            authRepository = authRepository,
             scope = scope,
             onLogoutClick = {
                 scope.launch {
@@ -52,7 +55,19 @@ object ServicesScreen : Screen {
                     )
                 }
             },
-            onMonitoringClick = { navigator.push(MonitoringScreen) },
+            onMonitoringClick = {
+                scope.launch {
+                    val userId = authRepository.getCurrentUser()?.uid
+                    val user = if (userId != null) userRepository.getUser(userId) else null
+
+                    if (userId == null || !UserProfileManager.isProfileComplete(userId)) {
+                        navigator.push(UserProfileScreen)
+                    } else {
+                        Toast.makeText(context, "Por favor, complete seu perfil antes de iniciar uma atividade.", Toast.LENGTH_LONG).show()
+                        navigator.push(MonitoringScreen)
+                    }
+                }
+            },
             onGroupsClick = { navigator.push(GroupsScreen) },
             onRankingClick = { navigator.push(RankingScreen) }
         )
@@ -62,7 +77,6 @@ object ServicesScreen : Screen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServicesScreenContent(
-    authRepository: AuthRepository,
     scope: CoroutineScope,
     onLogoutClick: () -> Unit,
     onMonitoringClick: () -> Unit,
@@ -84,10 +98,8 @@ private fun ServicesScreenContent(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Título da tela
             HeaderSection()
 
-            // Cards de serviços
             ServicesSection(
                 onMonitoringClick = onMonitoringClick,
                 onGroupsClick = onGroupsClick,
@@ -96,7 +108,6 @@ private fun ServicesScreenContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botão de logout
             LogoutSection(onLogoutClick = onLogoutClick)
         }
     }
