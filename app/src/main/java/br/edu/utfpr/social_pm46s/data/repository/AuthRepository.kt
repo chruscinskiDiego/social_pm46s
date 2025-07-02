@@ -12,15 +12,46 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
 import java.util.concurrent.CancellationException
+import androidx.core.net.toUri
 
 class AuthRepository(private val context: Context) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
 
-    // Web Client ID from Firebase console (Authentication -> Sign-in method -> Google)
-    // Or from your google-services.json: projects[].oauth_client[].client_id where client_type is 3
-    private val webClientId = "YOUR_WEB_CLIENT_ID" // Make sure to replace this
+    // Extrair webClientId do google-services.json
+    private val webClientId: String by lazy {
+        getWebClientIdFromGoogleServices()
+    }
+
+    private fun getWebClientIdFromGoogleServices(): String {
+        try {
+            val inputStream = context.assets.open("google-services.json")
+            val jsonString = inputStream.bufferedReader().use { it.readText() }
+            val jsonObject = JSONObject(jsonString)
+
+            val clientArray = jsonObject.getJSONArray("client")
+            val firstClient = clientArray.getJSONObject(0)
+            val oauthArray = firstClient.getJSONArray("oauth_client")
+
+            // Procurar pelo client_type 3 (web client)
+            for (i in 0 until oauthArray.length()) {
+                val oauth = oauthArray.getJSONObject(i)
+                if (oauth.getInt("client_type") == 3) {
+                    return oauth.getString("client_id")
+                }
+            }
+
+            // Se não encontrar o client_type 3, lançar exceção
+            throw Exception("Web client ID not found in google-services.json")
+        } catch (e: Exception) {
+            throw RuntimeException(
+                "Failed to load web client ID from google-services.json: ${e.message}",
+                e
+            )
+        }
+    }
 
     fun getCurrentUser(): FirebaseUser? = auth.currentUser
 
@@ -135,7 +166,7 @@ class AuthRepository(private val context: Context) {
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .apply {
                     displayName?.let { setDisplayName(it) }
-                    photoUrl?.let { setPhotoUri(android.net.Uri.parse(it)) }
+                    photoUrl?.let { photoUri = it.toUri() }
                 }
                 .build()
 
