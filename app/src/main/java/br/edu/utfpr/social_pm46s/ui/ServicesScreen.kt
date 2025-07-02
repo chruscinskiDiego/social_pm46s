@@ -1,5 +1,7 @@
 package br.edu.utfpr.social_pm46s.ui
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,144 +10,178 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.edu.utfpr.social_pm46s.R
+import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
+import br.edu.utfpr.social_pm46s.data.repository.UserRepository
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import br.edu.utfpr.social_pm46s.data.repository.AuthRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import br.edu.utfpr.social_pm46s.data.UserProfileManager
 
 object ServicesScreen : Screen {
+    private fun readResolve(): Any = ServicesScreen
 
     @Composable
     override fun Content() {
-        // Pega a instância do navegador atual
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val authRepository = AuthRepository(context)
-        val currentUser = authRepository.getCurrentUser()
-        val userId = currentUser?.uid
         val scope = rememberCoroutineScope()
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(
-                onClick = {
-                    scope.launch {
-                        authRepository.signOut()
-                        navigator.replaceAll(LoginScreen)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Logout")
-            }
+        // Instanciando os repositórios necessários para a validação
+        val authRepository = AuthRepository(context)
+        val userRepository = UserRepository()
 
-            Button(
-                onClick = { navigator.push(UserProfileScreen) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Editar Perfil")
-            }
+        ServicesScreenContent(
+            scope = scope,
+            onLogoutClick = {
+                scope.launch {
+                    handleLogout(
+                        context = context,
+                        authRepository = authRepository,
+                        onSuccess = {
+                            navigator.replaceAll(LoginScreen)
+                        }
+                    )
+                }
+            },
+            onMonitoringClick = {
+                scope.launch {
+                    val userId = authRepository.getCurrentUser()?.uid
+                    val user = if (userId != null) userRepository.getUser(userId) else null
 
-            ServiceCard(
-                title = "Iniciar Monitoramento",
-                imageResId = R.drawable.monitoring,
-                onClick = {
-                    UserProfileManager.init(context)
                     if (userId == null || !UserProfileManager.isProfileComplete(userId)) {
                         navigator.push(UserProfileScreen)
                     } else {
+                        Toast.makeText(context, "Por favor, complete seu perfil antes de iniciar uma atividade.", Toast.LENGTH_LONG).show()
                         navigator.push(MonitoringScreen)
                     }
                 }
-            )
-
-            ServiceCard(
-                title = "Grupos",
-                imageResId = R.drawable.groups,
-                onClick = { navigator.push(GroupsScreen) }
-            )
-
-            ServiceCard(
-                title = "Ranking Geral",
-                imageResId = R.drawable.ranking,
-                onClick = { navigator.push(RankingScreen)}
-            )
-        }
+            },
+            onGroupsClick = { navigator.push(GroupsScreen) },
+            onRankingClick = { navigator.push(RankingScreen) }
+        )
     }
 }
 
-// Telas de destino (placeholders)
-object MonitoringScreen : Screen {
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Tela de Monitoramento", fontSize = 24.sp)
-                Button(onClick = { navigator.pop() }) { // 'pop' volta para a tela anterior
-                    Text("Voltar")
-                }
-            }
-        }
-    }
-}
-
-object GroupsScreen : Screen {
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Tela de Grupos", fontSize = 24.sp)
-                Button(onClick = { navigator.pop() }) {
-                    Text("Voltar")
-                }
-            }
-        }
-    }
-}
-
-/*object RankingScreen : Screen {
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Tela de Ranking Geral", fontSize = 24.sp)
-                Button(onClick = { navigator.pop() }) {
-                    Text("Voltar")
-                }
-            }
-        }
-    }
-}*/
-
-
-// O Composable do Card não precisa ser uma Screen, ele é apenas um componente de UI.
-// Ele continua o mesmo de antes.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServiceCard(
+private fun ServicesScreenContent(
+    scope: CoroutineScope,
+    onLogoutClick: () -> Unit,
+    onMonitoringClick: () -> Unit,
+    onGroupsClick: () -> Unit,
+    onRankingClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+                .systemBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            HeaderSection()
+
+            ServicesSection(
+                onMonitoringClick = onMonitoringClick,
+                onGroupsClick = onGroupsClick,
+                onRankingClick = onRankingClick
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LogoutSection(onLogoutClick = onLogoutClick)
+        }
+    }
+}
+
+@Composable
+private fun HeaderSection(
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = "Serviços Disponíveis",
+        fontSize = 28.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun ServicesSection(
+    onMonitoringClick: () -> Unit,
+    onGroupsClick: () -> Unit,
+    onRankingClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        ServiceCard(
+            title = "Iniciar Monitoramento",
+            imageResId = R.drawable.monitoring,
+            onClick = onMonitoringClick
+        )
+
+        ServiceCard(
+            title = "Grupos",
+            imageResId = R.drawable.groups,
+            onClick = onGroupsClick
+        )
+
+        ServiceCard(
+            title = "Ranking Geral",
+            imageResId = R.drawable.ranking,
+            onClick = onRankingClick
+        )
+    }
+}
+
+@Composable
+private fun LogoutSection(
+    onLogoutClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onLogoutClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError
+        )
+    ) {
+        Text(
+            text = "Logout",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ServiceCard(
     title: String,
     imageResId: Int,
     onClick: () -> Unit,
@@ -155,6 +191,9 @@ fun ServiceCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         onClick = onClick
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -169,17 +208,126 @@ fun ServiceCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF4A148C))
+                    .background(MaterialTheme.colorScheme.primary)
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = title,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
             }
         }
     }
+}
+
+// Telas de destino (placeholders)
+//object MonitoringScreens : Screen {
+//    private fun readResolve(): Any = MonitoringScreen
+//
+//    @OptIn(ExperimentalMaterial3Api::class)
+//    @Composable
+//    override fun Content() {
+//        val navigator = LocalNavigator.currentOrThrow
+//
+//        Scaffold(
+//            modifier = Modifier.fillMaxSize(),
+//            containerColor = MaterialTheme.colorScheme.background
+//        ) { innerPadding ->
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .padding(innerPadding)
+//                    .systemBarsPadding(),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Column(
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                    verticalArrangement = Arrangement.spacedBy(16.dp)
+//                ) {
+//                    Text(
+//                        text = "Tela de Monitoramento",
+//                        fontSize = 24.sp,
+//                        fontWeight = FontWeight.Bold,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//
+//                    Button(
+//                        onClick = { navigator.pop() },
+//                        colors = ButtonDefaults.buttonColors(
+//                            containerColor = MaterialTheme.colorScheme.primary,
+//                            contentColor = MaterialTheme.colorScheme.onPrimary
+//                        )
+//                    ) {
+//                        Text("Voltar")
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
+
+object GroupsScreen : Screen {
+    private fun readResolve(): Any = GroupsScreen
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .systemBarsPadding(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Tela de Grupos",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Button(
+                        onClick = { navigator.pop() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Voltar")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private suspend fun handleLogout(
+    context: Context,
+    authRepository: AuthRepository,
+    onSuccess: () -> Unit
+) {
+    try {
+        authRepository.signOut()
+        showToast(context, "Logout realizado com sucesso!")
+        onSuccess()
+    } catch (e: Exception) {
+        showToast(context, "Erro no logout: ${e.message}")
+    }
+}
+
+private fun showToast(context: Context, message: String) {
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
