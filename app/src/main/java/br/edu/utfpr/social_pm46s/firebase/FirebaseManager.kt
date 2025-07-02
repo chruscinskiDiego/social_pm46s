@@ -2,6 +2,7 @@ package br.edu.utfpr.social_pm46s.firebase
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -12,6 +13,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -19,17 +21,17 @@ import kotlinx.coroutines.tasks.await
  * Centraliza a lógica de Authentication (Google), Firestore e Realtime Database
  */
 class FirebaseManager {
-    
+
     // Instâncias do Firebase
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val realtimeDatabase = FirebaseDatabase.getInstance()
-    
+
     // Google Sign-In
     private var googleSignInClient: GoogleSignInClient? = null
-    
+
     // ==================== GOOGLE SIGN-IN SETUP ====================
-    
+
     /**
      * Configura o Google Sign-In
      * Deve ser chamado na MainActivity ou Application
@@ -39,17 +41,17 @@ class FirebaseManager {
             .requestIdToken(webClientId)
             .requestEmail()
             .build()
-        
+
         googleSignInClient = GoogleSignIn.getClient(context, gso)
     }
-    
+
     /**
      * Obtém o Intent para iniciar o Google Sign-In
      */
     fun getGoogleSignInIntent(): Intent? = googleSignInClient?.signInIntent
-    
+
     // ==================== FIREBASE AUTHENTICATION (GOOGLE) ====================
-    
+
     /**
      * Processa o resultado do Google Sign-In
      */
@@ -58,18 +60,18 @@ class FirebaseManager {
             val account = GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException::class.java)
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
             val result = auth.signInWithCredential(credential).await()
-            
+
             result.user?.let { user ->
                 // Salvar informações do usuário no Firestore
                 saveUserToFirestore(user, account)
                 Result.success(user)
             } ?: Result.failure(Exception("Falha na autenticação"))
-            
+
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Salva informações do usuário no Firestore após login
      */
@@ -83,10 +85,10 @@ class FirebaseManager {
             "lastLogin" to System.currentTimeMillis(),
             "createdAt" to System.currentTimeMillis()
         )
-        
+
         saveDocumentToFirestore("users", user.uid, userData)
     }
-    
+
     /**
      * Fazer logout
      */
@@ -94,21 +96,21 @@ class FirebaseManager {
         auth.signOut()
         googleSignInClient?.signOut()
     }
-    
+
     /**
      * Obter usuário atual
      */
     fun getCurrentUser(): FirebaseUser? {
         return auth.currentUser
     }
-    
+
     /**
      * Verificar se usuário está logado
      */
     fun isUserLoggedIn(): Boolean {
         return auth.currentUser != null
     }
-    
+
     /**
      * Obter informações do usuário logado
      */
@@ -120,9 +122,9 @@ class FirebaseManager {
             "photoUrl" to it.photoUrl?.toString()
         )
     }
-    
+
     // ==================== FIRESTORE ====================
-    
+
     /**
      * Salvar documento no Firestore
      */
@@ -137,14 +139,14 @@ class FirebaseManager {
             } else {
                 firestore.collection(collection).document()
             }
-            
+
             docRef.set(data).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Ler documento do Firestore
      */
@@ -163,7 +165,7 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Atualizar documento no Firestore
      */
@@ -179,7 +181,7 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Deletar documento do Firestore
      */
@@ -194,9 +196,9 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     // ==================== REALTIME DATABASE ====================
-    
+
     /**
      * Salvar dados no Realtime Database
      */
@@ -211,7 +213,7 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Ler dados do Realtime Database
      */
@@ -223,7 +225,7 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Atualizar dados no Realtime Database
      */
@@ -238,7 +240,7 @@ class FirebaseManager {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Deletar dados do Realtime Database
      */
@@ -248,6 +250,18 @@ class FirebaseManager {
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    // ==================== STORAGE ====================
+    suspend fun uploadGroupImage(imageUri: Uri, groupId: String): String? {
+        return try {
+            val storageRef = FirebaseStorage.getInstance().reference
+            val imageRef = storageRef.child("groups/$groupId.jpg")
+            imageRef.putFile(imageUri).await()
+            imageRef.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            null
         }
     }
 } 
