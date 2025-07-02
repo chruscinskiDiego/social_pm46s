@@ -20,6 +20,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 object MainScreen : Screen {
@@ -62,7 +63,7 @@ private fun MainScreenContent(
     currentUser: FirebaseUser?,
     authRepository: AuthRepository,
     userRepository: UserRepository,
-    scope: kotlinx.coroutines.CoroutineScope,
+    scope: CoroutineScope,
     onSignOutClick: () -> Unit,
     onNavigateToServices: () -> Unit,
     modifier: Modifier = Modifier
@@ -161,7 +162,7 @@ private fun UserInfoSection(
 @Composable
 private fun MainActionsSection(
     onNavigateToServices: () -> Unit,
-    scope: kotlinx.coroutines.CoroutineScope,
+    scope: CoroutineScope,
     userRepository: UserRepository,
     modifier: Modifier = Modifier
 ) {

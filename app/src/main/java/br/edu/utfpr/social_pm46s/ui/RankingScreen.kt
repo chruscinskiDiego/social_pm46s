@@ -8,14 +8,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.edu.utfpr.social_pm46s.data.model.social.UserRanking
+import br.edu.utfpr.social_pm46s.data.repository.ActivityRepository
 import br.edu.utfpr.social_pm46s.data.repository.UserRepository
+import br.edu.utfpr.social_pm46s.service.SocialFitnessService
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -28,12 +29,13 @@ object RankingScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
         val userRepository = UserRepository()
+        val activityRepository = ActivityRepository()
+        val socialFitnessService = SocialFitnessService(activityRepository, userRepository)
         val scope = rememberCoroutineScope()
 
         RankingScreenContent(
-            userRepository = userRepository,
+            socialFitnessService = socialFitnessService,
             scope = scope,
             onBackClick = { navigator.pop() }
         )
@@ -43,37 +45,29 @@ object RankingScreen : Screen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RankingScreenContent(
-    userRepository: UserRepository,
+    socialFitnessService: SocialFitnessService,
     scope: CoroutineScope,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var rankings by remember { mutableStateOf<List<UserRanking>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedPeriod by remember { mutableStateOf("weekly") }
 
-    // Carrega dados iniciais (mockados por enquanto)
-    LaunchedEffect(Unit) {
+    // Carrega dados do ranking usando o SocialFitnessService
+    LaunchedEffect(selectedPeriod) {
         scope.launch {
             try {
-                // TODO: Substituir por dados reais do repository
-                rankings = getMockRankings()
+                isLoading = true
+                errorMessage = null
+                rankings = socialFitnessService.getLeaderboard(selectedPeriod)
                 isLoading = false
             } catch (e: Exception) {
                 isLoading = false
-                // TODO: Tratar erro adequadamente
+                errorMessage = "Erro ao carregar ranking: ${e.message}"
             }
         }
-    }
-
-    val top5Rankings = remember(rankings) {
-        rankings
-            .map { user ->
-                val score = calculateUserScore(user)
-                user to score
-            }
-            .sortedByDescending { it.second }
-            .take(5)
-            .map { it.first }
     }
 
     Scaffold(
@@ -95,10 +89,19 @@ private fun RankingScreenContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Filtro de período
+            PeriodFilterSection(
+                selectedPeriod = selectedPeriod,
+                onPeriodChanged = { selectedPeriod = it }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Card principal com ranking
             RankingCard(
                 isLoading = isLoading,
-                rankings = top5Rankings,
+                rankings = rankings,
+                errorMessage = errorMessage,
                 modifier = Modifier.weight(1f)
             )
 
@@ -124,9 +127,52 @@ private fun HeaderSection(
 }
 
 @Composable
+private fun PeriodFilterSection(
+    selectedPeriod: String,
+    onPeriodChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FilterChip(
+            selected = selectedPeriod == "weekly",
+            onClick = { onPeriodChanged("weekly") },
+            label = { Text("Semanal") },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.surface,
+                selectedLabelColor = MaterialTheme.colorScheme.primary
+            )
+        )
+
+        FilterChip(
+            selected = selectedPeriod == "monthly",
+            onClick = { onPeriodChanged("monthly") },
+            label = { Text("Mensal") },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.surface,
+                selectedLabelColor = MaterialTheme.colorScheme.primary
+            )
+        )
+
+        FilterChip(
+            selected = selectedPeriod == "all_time",
+            onClick = { onPeriodChanged("all_time") },
+            label = { Text("Todos") },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.surface,
+                selectedLabelColor = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
+}
+
+@Composable
 private fun RankingCard(
     isLoading: Boolean,
     rankings: List<UserRanking>,
+    errorMessage: String?,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -135,10 +181,10 @@ private fun RankingCard(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        if (isLoading) {
-            LoadingContent()
-        } else {
-            RankingContent(rankings = rankings)
+        when {
+            isLoading -> LoadingContent()
+            errorMessage != null -> ErrorContent(errorMessage)
+            else -> RankingContent(rankings = rankings)
         }
     }
 }
@@ -168,12 +214,52 @@ private fun BackButton(
 @Composable
 private fun LoadingContent() {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Carregando ranking...",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorContent(
+    errorMessage: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "❌",
+                fontSize = 32.sp
+            )
+            Text(
+                text = errorMessage,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -184,7 +270,7 @@ private fun RankingContent(
 ) {
     Column(modifier = modifier) {
         // Cabeçalho
-        RankingHeader()
+        RankingHeader(totalUsers = rankings.size)
 
         // Lista de rankings
         if (rankings.isEmpty()) {
@@ -197,6 +283,7 @@ private fun RankingContent(
 
 @Composable
 private fun RankingHeader(
+    totalUsers: Int,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -207,7 +294,7 @@ private fun RankingHeader(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "TOP 5 GERAL",
+            text = "TOP $totalUsers USUÁRIOS",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -239,16 +326,31 @@ private fun RankingList(
 private fun EmptyRankingContent() {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "Nenhum dado de ranking disponível",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "📊",
+                fontSize = 32.sp
+            )
+            Text(
+                text = "Nenhum dado de ranking disponível",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "Complete algumas atividades para aparecer no ranking!",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -261,9 +363,14 @@ private fun RankingItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp),
+            .height(70.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = when (position) {
+                1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                2 -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                3 -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            }
         )
     ) {
         Row(
@@ -279,8 +386,8 @@ private fun RankingItem(
                 user = user
             )
 
-            // Pontuação
-            ScoreSection(user = user)
+            // Estatísticas
+            StatsSection(user = user)
         }
     }
 }
@@ -298,30 +405,56 @@ private fun UserInfoSection(
     ) {
         Text(
             text = getPositionEmoji(position),
-            fontSize = 18.sp
+            fontSize = 20.sp
         )
-        Text(
-            text = "$position. ${user.name}",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Column {
+            Text(
+                text = "$position. ${user.name}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "⭐ ${calculateUserScore(user)} pts",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
 @Composable
-private fun ScoreSection(
+private fun StatsSection(
     user: UserRanking,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = "⭐ ${calculateUserScore(user)} pts",
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        textAlign = TextAlign.End,
-        modifier = modifier
-    )
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.End
+    ) {
+        if (user.totalSteps > 0) {
+            Text(
+                text = "👣 ${formatNumber(user.totalSteps)}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (user.totalDistance > 0) {
+            Text(
+                text = "📍 ${String.format("%.1f", user.totalDistance)}km",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (user.totalCalories > 0) {
+            Text(
+                text = "🔥 ${String.format("%.0f", user.totalCalories)}kcal",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 // Funções auxiliares
@@ -340,16 +473,10 @@ private fun getPositionEmoji(position: Int): String {
     }
 }
 
-private suspend fun getMockRankings(): List<UserRanking> {
-    // Simula delay de rede
-    kotlinx.coroutines.delay(1000)
-
-    return listOf(
-        UserRanking("1", "Alice", 12_000, 8.4, 320.0),
-        UserRanking("2", "Bruno", 18_000, 10.1, 420.5),
-        UserRanking("3", "Carla", 9_500, 5.2, 210.3),
-        UserRanking("4", "Diego", 25_000, 15.8, 600.0),
-        UserRanking("5", "Elaine", 16_000, 9.3, 380.7),
-        UserRanking("6", "Felipe", 14_000, 7.0, 350.0),
-    )
+private fun formatNumber(number: Int): String {
+    return when {
+        number >= 1000000 -> "${number / 1000000}M"
+        number >= 1000 -> "${number / 1000}K"
+        else -> number.toString()
+    }
 }
